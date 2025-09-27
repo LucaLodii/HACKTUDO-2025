@@ -576,5 +576,10 @@ class SubscriptionManagementTool:
         }
 
 
-# Tool instance for agent integration
-subscription_management_tool = SubscriptionManagementTool()
+# Initialize tool instance
+_subscription_management_tool = SubscriptionManagementTool()
+
+
+def subscription_management_tool(**kwargs):
+    """Subscription management tool function."""
+    return _subscription_management_tool.execute(**kwargs)

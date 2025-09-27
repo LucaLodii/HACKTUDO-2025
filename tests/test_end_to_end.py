@@ -29,7 +29,7 @@ class TestCompleteUserJourneys:
         # Step 3: Agent processing
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        subscriptions_result = await subscription_management_tool.execute(
+        subscriptions_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number=user_message["from"]
         )
@@ -66,7 +66,7 @@ class TestCompleteUserJourneys:
         # Step 1: System checks for expiring subscriptions
         from sofIA.tools.renewal_orchestration import renewal_orchestration_tool
         
-        renewal_queue = await renewal_orchestration_tool.execute(
+        renewal_queue = await renewal_orchestration_tool(
             operation="check_renewal_queue",
             days_ahead=3  # 3-day reminders
         )
@@ -77,7 +77,7 @@ class TestCompleteUserJourneys:
         if renewal_queue["renewal_queue"]["three_day_reminders"]:
             subscription_id = "sub-001"  # Mock subscription
             
-            reminder_result = await renewal_orchestration_tool.execute(
+            reminder_result = await renewal_orchestration_tool(
                 operation="send_renewal_reminder",
                 subscription_id=subscription_id
             )
@@ -133,7 +133,7 @@ class TestCompleteUserJourneys:
         # Step 2: Get current subscription
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        subscriptions_result = await subscription_management_tool.execute(
+        subscriptions_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number=user_message["from"]
         )
@@ -157,7 +157,7 @@ class TestCompleteUserJourneys:
         # Step 3: Get upgrade options
         from sofIA.tools.plan_management import plan_management_tool
         
-        upgrade_options = await plan_management_tool.execute(
+        upgrade_options = await plan_management_tool(
             operation="get_plan_options",
             operator_id=vivo_subscription["operators"]["id"],
             current_plan_id=vivo_subscription["subscription_plans"]["id"]
@@ -186,7 +186,7 @@ class TestCompleteUserJourneys:
         selected_plan_id = "vivo-002"  # Mock selected plan
         
         # Step 6: Calculate upgrade cost
-        cost_calculation = await plan_management_tool.execute(
+        cost_calculation = await plan_management_tool(
             operation="calculate_migration_cost",
             subscription_id=vivo_subscription["id"],
             new_plan_id=selected_plan_id
@@ -224,7 +224,7 @@ Confirma o upgrade? Digite 'CONFIRMAR' ou 'CANCELAR'
         assert upgrade_payment["success"] is True
         
         # Step 10: Update subscription plan
-        plan_change_result = await plan_management_tool.execute(
+        plan_change_result = await plan_management_tool(
             operation="execute_plan_change",
             subscription_id=vivo_subscription["id"],
             new_plan_id=selected_plan_id
@@ -255,7 +255,7 @@ Confirma o upgrade? Digite 'CONFIRMAR' ou 'CANCELAR'
         # Step 2: Get all subscriptions
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        all_subscriptions = await subscription_management_tool.execute(
+        all_subscriptions = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number=user_message["from"]
         )
@@ -265,7 +265,7 @@ Confirma o upgrade? Digite 'CONFIRMAR' ou 'CANCELAR'
         # Step 3: Get detailed information for each subscription
         subscription_details = []
         for sub in all_subscriptions["subscriptions"]:
-            details = await subscription_management_tool.execute(
+            details = await subscription_management_tool(
                 operation="get_subscription_details",
                 subscription_id=sub["id"]
             )
@@ -306,7 +306,7 @@ Confirma o upgrade? Digite 'CONFIRMAR' ou 'CANCELAR'
             # Step 6: Process renewal
             from sofIA.tools.renewal_orchestration import renewal_orchestration_tool
             
-            renewal_cost = await renewal_orchestration_tool.execute(
+            renewal_cost = await renewal_orchestration_tool(
                 operation="calculate_renewal_cost",
                 subscription_id=expiring_soon[0]["id"]
             )
@@ -355,7 +355,7 @@ Confirma o upgrade? Digite 'CONFIRMAR' ou 'CANCELAR'
             
             from sofIA.tools.subscription_management import subscription_management_tool
             
-            result = await subscription_management_tool.execute(
+            result = await subscription_management_tool(
                 operation="get_user_subscriptions",
                 whatsapp_number=clarified_message["from"]
             )
@@ -453,7 +453,7 @@ class TestSystemReliability:
             from sofIA.tools.subscription_management import subscription_management_tool
             
             # Tool should fall back to mock data
-            result = await subscription_management_tool.execute(
+            result = await subscription_management_tool(
                 operation="get_user_subscriptions",
                 whatsapp_number="+5511999887766"
             )
@@ -508,7 +508,7 @@ class TestPerformanceUnderLoad:
         # Each user checks subscriptions simultaneously
         tasks = []
         for user_id in user_ids:
-            task = subscription_management_tool.execute(
+            task = subscription_management_tool(
                 operation="get_user_subscriptions",
                 whatsapp_number=user_id
             )
@@ -539,7 +539,7 @@ class TestPerformanceUnderLoad:
         
         # Run operations multiple times to test for memory leaks
         for i in range(100):
-            result = await subscription_management_tool.execute(
+            result = await subscription_management_tool(
                 operation="get_user_subscriptions",
                 whatsapp_number=f"+55119998877{i:02d}"
             )
@@ -601,7 +601,7 @@ class TestBusinessLogicValidation:
         from sofIA.tools.plan_management import plan_management_tool
         
         # Test plan change cost calculation
-        result = await plan_management_tool.execute(
+        result = await plan_management_tool(
             operation="calculate_migration_cost",
             subscription_id="sub-001",
             new_plan_id="vivo-002"

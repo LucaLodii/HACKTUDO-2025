@@ -280,12 +280,12 @@ class TestSupabaseIntegration:
         from sofIA.tools.subscription_management import subscription_management_tool
         
         # READ operations
-        operators_result = await subscription_management_tool.execute(
+        operators_result = await subscription_management_tool(
             operation="get_operators"
         )
         assert operators_result["success"] is True
         
-        subscriptions_result = await subscription_management_tool.execute(
+        subscriptions_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number="+5511999887766"
         )
@@ -301,8 +301,8 @@ class TestSupabaseIntegration:
         # Test query performance
         start_time = time.time()
         
-        result = await subscription_management_tool.execute(
-            operation="get_user_subscriptions", 
+        result = await subscription_management_tool(
+            operation="get_user_subscriptions",
             whatsapp_number="+5511999887766"
         )
         
@@ -319,7 +319,7 @@ class TestSupabaseIntegration:
         from sofIA.tools.subscription_management import subscription_management_tool
         
         # Test with invalid operation
-        result = await subscription_management_tool.execute(
+        result = await subscription_management_tool(
             operation="invalid_operation"
         )
         
@@ -514,7 +514,7 @@ class TestLoadAndStress:
         # Create concurrent requests
         tasks = []
         for user_id in user_ids:
-            task = subscription_management_tool.execute(
+            task = subscription_management_tool(
                 operation="get_user_subscriptions",
                 whatsapp_number=user_id
             )

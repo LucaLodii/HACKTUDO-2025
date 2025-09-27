@@ -709,5 +709,10 @@ class RenewalOrchestrationTool:
         }
 
 
-# Tool instance for agent integration
-renewal_orchestration_tool = RenewalOrchestrationTool()
+# Initialize tool instance
+_renewal_orchestration_tool = RenewalOrchestrationTool()
+
+
+def renewal_orchestration_tool(**kwargs):
+    """Renewal orchestration tool function."""
+    return _renewal_orchestration_tool.execute(**kwargs)

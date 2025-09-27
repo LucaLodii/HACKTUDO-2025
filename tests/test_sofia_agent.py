@@ -5,6 +5,8 @@ Tests agent initialization, tool integration, and response generation
 
 import pytest
 import asyncio
+import importlib
+import sys
 from unittest.mock import AsyncMock, patch, MagicMock
 
 # Test the sofIA agent configuration and tool integration
@@ -14,7 +16,7 @@ class TestSofIAAgent:
     @pytest.fixture
     def mock_google_adk(self):
         """Mock Google ADK Agent class"""
-        with patch('sofIA.agent.Agent') as mock_agent_class:
+        with patch('google.adk.agents.Agent') as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.name = 'sofIA'
             mock_agent.model = 'gemini-2.5-flash'
@@ -26,23 +28,38 @@ class TestSofIAAgent:
         """Test that sofIA agent initializes with correct configuration"""
         mock_agent_class, mock_agent = mock_google_adk
         
-        # Import after mocking to avoid dependency issues
-        from sofIA.agent import root_agent
+        # Remove the module if it was already imported
+        if 'sofIA.agent' in sys.modules:
+            del sys.modules['sofIA.agent']
         
-        # Verify agent was created with correct parameters
-        mock_agent_class.assert_called_once()
-        call_args = mock_agent_class.call_args
+        # Import after mocking to ensure the mock is used
+        import sofIA.agent
+        importlib.reload(sofIA.agent)
+        
+        # Verify agent was created with correct parameters (may be called multiple times due to imports)
+        assert mock_agent_class.called
+        call_args = mock_agent_class.call_args  # Gets the last call
         
         assert call_args[1]['model'] == 'gemini-2.5-flash'
         assert call_args[1]['name'] == 'sofIA'
         assert 'subscription management' in call_args[1]['description'].lower()
         assert 'tools' in call_args[1]
+        
+        # Verify all calls have the same parameters (consistency check)
+        for call in mock_agent_class.call_args_list:
+            assert call[1]['model'] == 'gemini-2.5-flash'
+            assert call[1]['name'] == 'sofIA'
     
     def test_agent_tools_integration(self, mock_google_adk):
         """Test that all required tools are integrated"""
         mock_agent_class, mock_agent = mock_google_adk
         
-        from sofIA.agent import root_agent
+        # Remove the module if it was already imported
+        if 'sofIA.agent' in sys.modules:
+            del sys.modules['sofIA.agent']
+        
+        import sofIA.agent
+        importlib.reload(sofIA.agent)
         
         # Get the tools passed to the agent
         call_args = mock_agent_class.call_args
@@ -81,7 +98,7 @@ class TestSofIAAgent:
         # Test subscription management tool
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        result = await subscription_management_tool.execute(
+        result = await subscription_management_tool(
             operation="get_operators"
         )
         
@@ -91,7 +108,7 @@ class TestSofIAAgent:
         # Test renewal orchestration tool
         from sofIA.tools.renewal_orchestration import renewal_orchestration_tool
         
-        result = await renewal_orchestration_tool.execute(
+        result = await renewal_orchestration_tool(
             operation="check_renewal_queue",
             days_ahead=7
         )
@@ -102,7 +119,7 @@ class TestSofIAAgent:
         # Test plan management tool
         from sofIA.tools.plan_management import plan_management_tool
         
-        result = await plan_management_tool.execute(
+        result = await plan_management_tool(
             operation="get_plan_options",
             operator_id="vivo-op"
         )
@@ -172,7 +189,7 @@ class TestToolIntegration:
         from sofIA.tools.renewal_orchestration import renewal_orchestration_tool
         
         # 1. Get user subscriptions
-        subscriptions_result = await subscription_management_tool.execute(
+        subscriptions_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number="+5511999887766"
         )
@@ -180,7 +197,7 @@ class TestToolIntegration:
         assert subscriptions_result['success'] is True
         
         # 2. Check renewal queue
-        renewal_result = await renewal_orchestration_tool.execute(
+        renewal_result = await renewal_orchestration_tool(
             operation="check_renewal_queue",
             days_ahead=7
         )
@@ -188,7 +205,7 @@ class TestToolIntegration:
         assert renewal_result['success'] is True
         
         # 3. Calculate renewal cost
-        cost_result = await renewal_orchestration_tool.execute(
+        cost_result = await renewal_orchestration_tool(
             operation="calculate_renewal_cost",
             subscription_id="sub-001"
         )
@@ -203,7 +220,7 @@ class TestToolIntegration:
         from sofIA.tools.plan_management import plan_management_tool
         
         # 1. Get user subscriptions
-        subscriptions_result = await subscription_management_tool.execute(
+        subscriptions_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number="+5511999887766"
         )
@@ -211,7 +228,7 @@ class TestToolIntegration:
         assert subscriptions_result['success'] is True
         
         # 2. Get plan options
-        plans_result = await plan_management_tool.execute(
+        plans_result = await plan_management_tool(
             operation="get_plan_options",
             operator_id="vivo-op",
             current_plan_id="vivo-001"
@@ -220,7 +237,7 @@ class TestToolIntegration:
         assert plans_result['success'] is True
         
         # 3. Compare plans
-        comparison_result = await plan_management_tool.execute(
+        comparison_result = await plan_management_tool(
             operation="compare_plans",
             current_plan_id="vivo-001",
             new_plan_id="vivo-002"
@@ -243,7 +260,7 @@ class TestToolIntegration:
         ]
         
         for tool, operation in tools:
-            result = await tool.execute(operation=operation)
+            result = await tool(operation=operation)
             assert result['success'] is False
             assert 'error' in result
             assert 'Unknown operation' in result['error']
@@ -259,7 +276,7 @@ class TestMockDataConsistency:
         from sofIA.tools.plan_management import plan_management_tool
         
         # Get operators from subscription tool
-        operators_result = await subscription_management_tool.execute(
+        operators_result = await subscription_management_tool(
             operation="get_operators"
         )
         
@@ -269,7 +286,7 @@ class TestMockDataConsistency:
         # Test that plan tool recognizes the same operators
         for operator in operators:
             operator_id = operator['id']
-            plans_result = await plan_management_tool.execute(
+            plans_result = await plan_management_tool(
                 operation="get_plan_options",
                 operator_id=operator_id
             )
@@ -284,7 +301,7 @@ class TestMockDataConsistency:
         from sofIA.tools.renewal_orchestration import renewal_orchestration_tool
         
         # Get subscriptions
-        subscriptions_result = await subscription_management_tool.execute(
+        subscriptions_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number="+5511999887766"
         )
@@ -293,7 +310,7 @@ class TestMockDataConsistency:
             subscription_id = subscriptions_result['subscriptions'][0]['id']
             
             # Test renewal tool recognizes the same subscription
-            renewal_cost_result = await renewal_orchestration_tool.execute(
+            renewal_cost_result = await renewal_orchestration_tool(
                 operation="calculate_renewal_cost",
                 subscription_id=subscription_id
             )
@@ -307,7 +324,7 @@ class TestMockDataConsistency:
         from sofIA.tools.plan_management import plan_management_tool
         
         # Get available plans
-        plans_result = await subscription_management_tool.execute(
+        plans_result = await subscription_management_tool(
             operation="get_available_plans",
             operator_id="vivo-op"
         )
@@ -317,7 +334,7 @@ class TestMockDataConsistency:
             
             if len(plan_ids) >= 2:
                 # Test plan management tool can compare these plans
-                comparison_result = await plan_management_tool.execute(
+                comparison_result = await plan_management_tool(
                     operation="compare_plans",
                     current_plan_id=plan_ids[0],
                     new_plan_id=plan_ids[1]

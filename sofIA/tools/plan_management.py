@@ -457,8 +457,11 @@ class PlanManagementTool:
                 return cost_result
             
             # Get plan comparison
-            subscription_response = self.supabase.table("user_subscriptions").select("plan_id").eq("id", subscription_id).execute()
-            current_plan_id = subscription_response.data[0]["plan_id"] if subscription_response.data else None
+            if self.mock_mode:
+                current_plan_id = "plan-basic"  # Mock current plan
+            else:
+                subscription_response = self.supabase.table("user_subscriptions").select("plan_id").eq("id", subscription_id).execute()
+                current_plan_id = subscription_response.data[0]["plan_id"] if subscription_response.data else None
             
             if current_plan_id:
                 comparison_result = await self._compare_plans(current_plan_id, new_plan_id)
@@ -781,5 +784,10 @@ class PlanManagementTool:
         }
 
 
-# Tool instance for agent integration
-plan_management_tool = PlanManagementTool()
+# Initialize tool instance
+_plan_management_tool = PlanManagementTool()
+
+
+def plan_management_tool(**kwargs):
+    """Plan management tool function."""
+    return _plan_management_tool.execute(**kwargs)

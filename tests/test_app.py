@@ -160,7 +160,7 @@ class TestAppDependencies:
         try:
             from sofIA.tools.subscription_management import subscription_management_tool
             
-            result = await subscription_management_tool.execute(
+            result = await subscription_management_tool(
                 operation="get_operators"
             )
             
@@ -337,7 +337,7 @@ class TestAppPerformance:
         start_time = asyncio.get_event_loop().time()
         
         try:
-            result = await subscription_management_tool.execute(
+            result = await subscription_management_tool(
                 operation="get_user_subscriptions",
                 whatsapp_number="+5511999887766"
             )

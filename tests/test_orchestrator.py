@@ -47,7 +47,7 @@ class TestOrchestratorAgent:
             from orchestrator.tools.orchestration_tool import orchestration_tool
             
             # Test basic A2A communication functionality
-            result = await orchestration_tool.execute(
+            result = await orchestration_tool(
                 operation="coordinate_agents",
                 source_agent="orchestrator",
                 target_agent="sofIA",
@@ -180,7 +180,7 @@ Use your {tool_type} tools to process this request.
             # Simulate intent detection
             message = case["message"].lower()
             
-            if any(word in message for word in ["planos", "assinatura", "renovar", "melhorar", "expira"]):
+            if any(word in message for word in ["planos", "plano", "assinatura", "renovar", "melhorar", "expira"]):
                 detected_intent = "subscription_related"
                 target_agent = "sofIA"
             else:
@@ -217,7 +217,7 @@ class TestConversationFlow:
         # 3. Simulate sofIA response
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        sofia_result = await subscription_management_tool.execute(
+        sofia_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number=user_id
         )
@@ -248,7 +248,7 @@ class TestConversationFlow:
         # 2. Get user subscriptions to find Vivo plan
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        subscriptions_result = await subscription_management_tool.execute(
+        subscriptions_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number=user_id
         )
@@ -265,7 +265,7 @@ class TestConversationFlow:
         if vivo_subscription:
             from sofIA.tools.renewal_orchestration import renewal_orchestration_tool
             
-            cost_result = await renewal_orchestration_tool.execute(
+            cost_result = await renewal_orchestration_tool(
                 operation="calculate_renewal_cost",
                 subscription_id=vivo_subscription['id']
             )
@@ -293,7 +293,7 @@ class TestConversationFlow:
         # 1. Get current subscriptions
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        subscriptions_result = await subscription_management_tool.execute(
+        subscriptions_result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number=user_id
         )
@@ -306,7 +306,7 @@ class TestConversationFlow:
             
             from sofIA.tools.plan_management import plan_management_tool
             
-            options_result = await plan_management_tool.execute(
+            options_result = await plan_management_tool(
                 operation="get_plan_options",
                 operator_id=operator_id,
                 current_plan_id=current_plan_id
@@ -356,7 +356,7 @@ class TestErrorHandling:
         
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        result = await subscription_management_tool.execute(
+        result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number=invalid_user_id
         )
@@ -400,7 +400,7 @@ class TestPerformanceRequirements:
         
         from sofIA.tools.subscription_management import subscription_management_tool
         
-        result = await subscription_management_tool.execute(
+        result = await subscription_management_tool(
             operation="get_user_subscriptions",
             whatsapp_number="+5511999887766"
         )
@@ -423,7 +423,7 @@ class TestPerformanceRequirements:
         # Create concurrent tasks
         tasks = []
         for user_id in user_ids:
-            task = subscription_management_tool.execute(
+            task = subscription_management_tool(
                 operation="get_user_subscriptions",
                 whatsapp_number=user_id
             )

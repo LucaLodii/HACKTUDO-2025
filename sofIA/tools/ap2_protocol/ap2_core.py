@@ -140,6 +140,7 @@ class AP2PaymentAgent:
         self.signer = MandateSigner()
         self.active_intents: Dict[str, IntentMandate] = {}
         self.active_carts: Dict[str, CartMandate] = {}
+        self.payment_mandates: Dict[str, PaymentMandate] = {}
     
     def create_intent_mandate(
         self,
@@ -276,6 +277,71 @@ class AP2PaymentAgent:
                 "requires_confirmation": intent.user_cart_confirmation_required
             }
         return {"error": f"Intent {intent_id} not found"}
+    
+    def process_whatsapp_message(self, message: str, user_id: str) -> Dict[str, Any]:
+        """Process WhatsApp message and create intent mandate."""
+        try:
+            message_lower = message.lower().strip()
+            
+            # Check if this is a confirmation message
+            confirmation_words = ["confirm", "yes", "ok", "proceed", "continue", "accept"]
+            if any(word in message_lower for word in confirmation_words):
+                return {
+                    "success": True,
+                    "type": "confirmation_received",
+                    "message": "Confirmation received. Proceeding with payment.",
+                    "user_response": message,
+                    "next_action": "create_cart"
+                }
+            
+            # Check if this is a general greeting or non-purchase message
+            general_words = ["hello", "hi", "help", "info", "about", "what"]
+            purchase_words = ["buy", "purchase", "order", "want", "need", "get"]
+            
+            has_general = any(word in message_lower for word in general_words)
+            has_purchase = any(word in message_lower for word in purchase_words)
+            
+            if has_general and not has_purchase:
+                return {
+                    "success": True,
+                    "type": "general_response",
+                    "message": "Hello! I can help you with purchases. What would you like to buy?",
+                    "user_message": message
+                }
+            
+            # This appears to be a purchase intent - create intent mandate
+            intent_mandate = self.create_intent_mandate(
+                user_message=message,
+                user_id=user_id,
+                merchants=None,
+                max_price=None,
+                requires_confirmation=True
+            )
+            
+            # Get the intent ID (last created)
+            if not self.active_intents:
+                return {
+                    "success": False,
+                    "type": "error",
+                    "error": "Failed to create intent mandate"
+                }
+            
+            intent_id = list(self.active_intents.keys())[-1]
+            
+            return {
+                "success": True,
+                "type": "intent_created",
+                "intent_id": intent_id,
+                "message": f"Intent mandate created successfully for: {message}",
+                "requires_confirmation": intent_mandate.user_cart_confirmation_required,
+                "description": intent_mandate.natural_language_description
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "type": "error",
+                "error": f"Failed to process WhatsApp message: {str(e)}"
+            }
 
     def get_payment_mandate_status(self, payment_mandate_id: str) -> Dict[str, Any]:
         """Get status of a payment mandate."""
