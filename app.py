@@ -67,16 +67,28 @@ If the user is canceling a purchase, start with [PAYMENT_CANCEL].
             session = get_user_session(user_id)
             current_state = session.get("payment_state", "idle")
 
-            # Create prompt for intent detection with context
-            intent_prompt = f"""You are sofIA, an AI payment assistant. Analyze this user message and respond naturally.
+            # Get memory context for enhanced understanding
+            try:
+                from sofIA.memory import SupabaseMemoryManager
+                memory_manager = SupabaseMemoryManager()
+                memory_context = memory_manager.get_memory_summary(user_id)
+            except Exception as e:
+                print(f"⚠️ Memory context error: {e}")
+                memory_context = "No memory context available."
+
+            # Create prompt for intent detection with context and memory
+            intent_prompt = f"""You are sofIA, an AI payment assistant with memory. Analyze this user message and respond naturally.
 
 User message: "{message}"
 Current conversation state: {current_state}
+Memory context: {memory_context}
 
 Instructions:
+- Use the memory context to provide personalized responses
 - If you detect purchase intent (wants to buy something) and state is 'idle', start your response with [PAYMENT_INTENT]
 - If user is confirming a purchase (yes/sim/ok/confirm) and state is 'cart_created', start with [PAYMENT_CONFIRM]
 - If user is canceling a purchase (no/não/cancel) and state is 'cart_created', start with [PAYMENT_CANCEL]
+- Reference previous conversations or preferences when relevant
 - Otherwise, respond normally as a friendly payment assistant
 
 Respond naturally in Portuguese or English as appropriate."""

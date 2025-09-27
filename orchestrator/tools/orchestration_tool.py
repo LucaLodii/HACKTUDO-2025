@@ -5,6 +5,11 @@ Orchestration Tool - Simple functions for conversation flow and A2A coordination
 from typing import Dict, Any
 from datetime import datetime
 
+# Import memory system
+from sofIA.memory import SupabaseMemoryManager
+
+# Initialize memory manager
+memory_manager = SupabaseMemoryManager()
 
 # Global session storage (in production, use proper session management)
 _user_sessions = {}
@@ -26,7 +31,7 @@ def _get_ap2_agent():
 
 
 def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[str, Any]:
-    """Process user message and coordinate A2A communication"""
+    """Process user message and coordinate A2A communication with memory"""
 
     # Initialize user session
     if user_id not in _user_sessions:
@@ -42,6 +47,14 @@ def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[s
     print(f"💬 Processing message: '{message}' from user: {user_id}")
     print(f"🔄 Current state: {session['payment_state']}")
 
+    # Get memory context for enhanced AI understanding
+    try:
+        memory_context = memory_manager.get_memory_summary(user_id)
+        print(f"🧠 Memory context: {memory_context}")
+    except Exception as e:
+        print(f"⚠️ Memory context error: {e}")
+        memory_context = "No memory context available."
+
     # Check if agent detected specific intents and coordinate accordingly
     coordination_result = _handle_agent_intent(agent_reply, message, user_id, session)
 
@@ -52,6 +65,18 @@ def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[s
         reply = agent_reply
 
     session["conversation_history"].append({"role": "assistant", "message": reply})
+
+    # Save conversation to persistent memory
+    try:
+        context_data = {
+            "session_id": session.get("session_id"),
+            "payment_state": session["payment_state"],
+            "memory_context": memory_context
+        }
+        memory_manager.save_conversation(user_id, message, reply, context_data)
+        print(f"💾 Conversation saved to memory for user {user_id}")
+    except Exception as e:
+        print(f"⚠️ Failed to save conversation to memory: {e}")
 
     return {
         "reply": reply,
@@ -203,6 +228,22 @@ def _process_payment(user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
         transaction_id = f"sofia_txn_{datetime.now().timestamp()}"
 
         print(f"✅ Payment executed successfully by sofIA Agent")
+
+        # Save transaction to memory
+        try:
+            transaction_data = {
+                "transaction_id": transaction_id,
+                "amount": product_info['price'],
+                "currency": product_info['currency'],
+                "product": product_info['name'],
+                "status": "completed",
+                "payment_method": "sofIA",
+                "session_id": session.get("session_id")
+            }
+            memory_manager.save_transaction(user_id, transaction_data)
+            print(f"💾 Transaction saved to memory: {transaction_id}")
+        except Exception as e:
+            print(f"⚠️ Failed to save transaction to memory: {e}")
 
         # Success response - payment completed by agent
         reply = f"""✅ **Pagamento concluído com sucesso!**
