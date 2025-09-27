@@ -9,7 +9,7 @@
 **Delivery Channel:** WhatsApp Business Integration  
 **Core Business Model:** Subscription Management & Renewal Orchestration
 
-sofIA is a revolutionary multi-agent subscription management and payment orchestration system that enables BEMOBI's telecom clients (VIVO, CLARO, OI, TIM) to handle complete subscription lifecycles through WhatsApp conversations. The system implements Google's AP2 Protocol for secure, cryptographically-verified agent-to-agent communication, combining intelligent subscription management with automated renewal processing and plan migration capabilities.
+sofIA is a revolutionary multi-agent subscription management and renewal orchestration system that enables BEMOBI's telecom clients (VIVO, CLARO, OI, TIM) to handle complete subscription lifecycles through WhatsApp conversations. The system implements Google's AP2 Protocol for secure subscription-related payments, combining intelligent subscription discovery, proactive renewal monitoring, and seamless plan migration capabilities with Supabase-powered subscription data management.
 
 ---
 
@@ -18,20 +18,23 @@ sofIA is a revolutionary multi-agent subscription management and payment orchest
 ### 1.1 Problem Statement
 BEMOBI's telecom clients (VIVO, CLARO, OI, TIM) face significant challenges in subscription management:
 - **High Involuntary Churn**: 30-40% of customers forget to renew subscriptions
-- **Manual Plan Management**: Complex processes for plan upgrades/downgrades
-- **Fragmented Customer Experience**: Multiple touchpoints for subscription operations
-- **Limited Proactive Engagement**: No intelligent reminder systems
-- **Payment Processing Delays**: Slow and unreliable renewal payment flows
-- **Regulatory Compliance**: Need for auditable, secure payment flows with AP2 protocol
+- **Manual Plan Management**: Complex processes for plan upgrades/downgrades requiring operator support
+- **Fragmented Customer Experience**: Multiple touchpoints for subscription operations across different systems
+- **Limited Proactive Engagement**: No intelligent reminder systems for expiring subscriptions
+- **Subscription Discovery**: Customers can't easily view and manage their active subscriptions
+- **Plan Comparison Complexity**: Difficult for customers to understand upgrade/downgrade options
+- **Renewal Payment Friction**: Complicated renewal processes leading to subscription lapses
 
 ### 1.2 Solution Vision
 sofIA creates a **"Subscription Lifecycle Revolution"** where:
-- Customers manage entire subscription lifecycles through natural WhatsApp conversations
-- AI agents proactively remind users of expiring subscriptions and handle renewals
-- Intelligent plan management enables seamless upgrades/downgrades with AP2 payments
-- Multiple AI agents orchestrate complex subscription flows with cryptographic security
-- AP2 Protocol ensures regulatory compliance and fraud prevention for all subscription operations
-- BEMOBI becomes the leading subscription management platform for telecom operators
+- Customers discover, monitor, and manage all subscriptions through natural WhatsApp conversations
+- AI agents proactively remind users of expiring subscriptions with personalized renewal messages
+- Intelligent plan management enables seamless upgrades/downgrades with cost comparisons
+- Renewal orchestration automatically schedules and processes subscription renewals
+- Subscription data is centrally managed through Supabase with real-time synchronization
+- Multiple specialized tools handle subscription discovery, plan management, and renewal orchestration
+- AP2 Protocol ensures secure payment processing for subscription changes and renewals
+- BEMOBI becomes the leading subscription management platform for telecom operators in LATAM
 
 ### 1.3 Value Proposition
 **For BEMOBI:**
@@ -61,20 +64,22 @@ sofIA creates a **"Subscription Lifecycle Revolution"** where:
 ### 2.1 Functional Requirements
 
 #### 2.1.1 Core Multi-Agent Architecture
-- **Orchestrator Agent**: Manages conversation flow and coordinates other agents
-- **sofIA Payment Agent**: Handles AP2 protocol compliance and payment processing
-- **Subscription Management Agent**: Handles subscription discovery, renewals, and plan changes
-- **Renewal Orchestration Agent**: Proactive monitoring and reminder system for expiring subscriptions
-- **Plan Management Agent**: Manages plan upgrades, downgrades, and cost calculations
-- **BEMOBI Integration Agent**: Manages telecom operator payment gateway operations
-- **WhatsApp Interface Agent**: Handles WhatsApp Web.js bridge communication
+- **Orchestrator Agent**: Manages conversation flow, intent detection, and coordinates specialized tools
+- **sofIA Agent**: Handles AP2 protocol compliance, payment processing, and subscription operations
+- **Subscription Management Tool**: Comprehensive subscription discovery, monitoring, and lifecycle management
+- **Plan Management Tool**: Handles plan upgrades, downgrades, cost calculations, and migration orchestration
+- **Renewal Orchestration Tool**: Proactive renewal monitoring, reminder scheduling, and renewal processing
+- **AP2 Protocol Tools**: Complete AP2 implementation for secure subscription-related payments
+- **BEMOBI Integration Tool**: Manages telecom operator payment gateway operations
+- **WhatsApp Integration**: Node.js bridge using WhatsApp Web.js for message handling
 
 #### 2.1.2 AP2 Protocol Compliance
-- **Subscription Intent Mandates**: Capture user subscription renewal/change intent with natural language
-- **Subscription Cart Mandates**: Create cryptographically signed subscription payment carts
-- **Subscription Payment Mandates**: Execute subscription payments with full audit trails
-- **Mandate Verification**: Verify all signatures and authorizations for subscription operations
-- **Expiry Management**: Handle time-limited mandates for security in renewal flows
+- **Intent Mandates**: Capture user subscription renewal/change intent with natural language processing
+- **Cart Mandates**: Create cryptographically signed subscription payment carts with plan details
+- **Payment Mandates**: Execute subscription payments and plan changes with full audit trails
+- **Signature Verification**: RSA-2048 digital signatures for all subscription-related transactions
+- **Credential Management**: Verifiable credentials for user authorization and subscription ownership
+- **Transaction Ledger**: Complete audit trail of all subscription operations and payments
 
 #### 2.1.3 WhatsApp Integration
 - **Natural Language Processing**: Understand subscription management intents in multiple languages
@@ -93,12 +98,14 @@ sofIA creates a **"Subscription Lifecycle Revolution"** where:
 - **Webhook Integration**: Real-time subscription and payment status updates
 
 #### 2.1.5 Subscription Management Capabilities
-- **Subscription Discovery**: Fetch and display user's active subscriptions across operators
-- **Renewal Monitoring**: Proactive monitoring of subscription expiration dates
-- **Intelligent Reminders**: Send personalized renewal reminders via WhatsApp
-- **Plan Comparison**: Present upgrade/downgrade options with cost calculations
-- **Seamless Migration**: Execute plan changes with immediate AP2 payment processing
-- **Multi-Subscription Management**: Handle multiple active subscriptions per user
+- **Subscription Discovery**: Fetch and display user's active subscriptions across all operators via Supabase
+- **Expiration Monitoring**: Real-time monitoring of subscription expiration dates with configurable alerts
+- **Intelligent Reminders**: Personalized renewal reminders with urgency levels (7-day, 3-day, 1-day, expired)
+- **Plan Comparison**: Detailed upgrade/downgrade options with feature comparisons and cost analysis
+- **Migration Orchestration**: Execute plan changes with prorated cost calculations and AP2 payment processing
+- **Multi-Operator Support**: Handle subscriptions across VIVO, CLARO, OI, TIM simultaneously
+- **Renewal Automation**: Automated renewal processing with payment scheduling and confirmation
+- **Usage Analytics**: Track subscription usage patterns for intelligent plan recommendations
 
 #### 2.1.6 Agent-to-Agent Communication (A2A)
 - **Structured A2A Messages**: Standardized communication between subscription management agents
@@ -179,40 +186,59 @@ sofIA creates a **"Subscription Lifecycle Revolution"** where:
 ### 3.2 Agent Architecture
 
 #### 3.2.1 Orchestrator Agent
-- **Role**: Main conversation coordinator and A2A orchestrator
+- **Role**: Main conversation coordinator and tool orchestrator
 - **Technology**: Google ADK with Gemini 2.5 Flash
 - **Responsibilities**:
-  - Natural language understanding and response generation
-  - Intent detection and routing to appropriate agents
-  - Conversation state management
-  - A2A coordination between specialized agents
+  - Natural language understanding and intent detection
+  - Subscription-related conversation management
+  - Tool coordination for subscription operations
+  - Session state management and user context preservation
 
-#### 3.2.2 sofIA Payment Agent
-- **Role**: AP2 Protocol compliance and payment processing
-- **Technology**: Google ADK with specialized AP2 tools
+#### 3.2.2 sofIA Agent
+- **Role**: Subscription operations and AP2 Protocol compliance
+- **Technology**: Google ADK with specialized subscription and AP2 tools
 - **Responsibilities**:
-  - AP2 mandate creation and management
+  - Subscription management tool integration
+  - Plan management and migration orchestration
+  - Renewal orchestration and automated processing
+  - AP2 mandate creation for subscription-related payments
   - Cryptographic signature generation and verification
-  - Payment flow orchestration
-  - Security and compliance enforcement
 
-#### 3.2.3 BEMOBI Integration Agent
-- **Role**: BEMOBI payment gateway integration
-- **Technology**: Custom tool integration with BEMOBI APIs
+#### 3.2.3 Subscription Management Tool
+- **Role**: Complete subscription lifecycle management
+- **Technology**: Python with Supabase integration
 - **Responsibilities**:
-  - Merchant configuration management
-  - Payment method routing
-  - Transaction processing
-  - Webhook handling
+  - User subscription discovery across operators
+  - Subscription status monitoring and expiration tracking
+  - Multi-operator subscription data synchronization
+  - Subscription details and history management
 
-#### 3.2.4 WhatsApp Interface Agent
+#### 3.2.4 Plan Management Tool
+- **Role**: Subscription plan operations and migration
+- **Technology**: Python with Supabase and AP2 integration
+- **Responsibilities**:
+  - Plan comparison and cost calculation
+  - Upgrade/downgrade validation and processing
+  - Prorated cost calculations for plan changes
+  - Plan recommendation engine based on usage patterns
+
+#### 3.2.5 Renewal Orchestration Tool
+- **Role**: Proactive renewal management and automation
+- **Technology**: Python with Supabase and messaging integration
+- **Responsibilities**:
+  - Expiration monitoring and renewal queue management
+  - Intelligent reminder scheduling (7-day, 3-day, 1-day alerts)
+  - Personalized renewal message generation
+  - Renewal response processing and follow-up automation
+
+#### 3.2.6 WhatsApp Integration
 - **Role**: WhatsApp Web.js bridge communication
-- **Technology**: Node.js bridge with Python integration
+- **Technology**: Node.js with WhatsApp Web.js library
 - **Responsibilities**:
-  - Message sending and receiving
-  - Media handling
-  - Session management
-  - Real-time status updates
+  - Message sending and receiving via WhatsApp Web
+  - Personal WhatsApp account integration (no Business API required)
+  - Real-time message processing and response delivery
+  - Session management and QR code authentication
 
 ### 3.3 AP2 Protocol Implementation
 
@@ -239,38 +265,57 @@ sofIA creates a **"Subscription Lifecycle Revolution"** where:
 
 ### 4.1 Customer Journey
 
-#### 4.1.1 Purchase Intent Discovery
+#### 4.1.1 Subscription Discovery
 ```
-Customer: "I want to buy coffee"
-Orchestrator Agent: Analyzes intent → [PAYMENT_INTENT]
-sofIA Payment Agent: Creates Intent Mandate via AP2
-BEMOBI Agent: Identifies merchant and pricing
-Response: "I found Café do João with premium coffee for BRL 15.50. Shall I proceed?"
+Customer: "What are my active subscriptions?"
+Orchestrator Agent: Analyzes intent → Uses subscription_management_tool
+Subscription Management Tool: Fetches user subscriptions from Supabase
+Response: "📱 Suas assinaturas ativas:
+
+🟢 Vivo Premium 10GB - R$ 49,90/mês
+   Expira em: 31/01/2025 (3 dias)
+
+🟢 Claro Smart 8GB - R$ 39,90/mês
+   Expira em: 05/02/2025 (8 dias)
+
+Gostaria de renovar alguma?"
 ```
 
-#### 4.1.2 Cart Creation and Confirmation
+#### 4.1.2 Proactive Renewal Reminder
 ```
-Customer: "Yes, add it to cart"
-sofIA Payment Agent: Creates Cart Mandate with AP2 compliance
-Orchestrator Agent: Coordinates A2A communication
-Response: "✅ Cart created! 
-🛍️ Premium Coffee - BRL 15.50
-🔐 Secured with AP2 protocol
-📱 Payment methods: PIX, Card, Boleto
-Confirm payment?"
+Renewal Orchestration Tool: Detects subscription expiring in 3 days
+Automatic WhatsApp Message: "⚠️ Olá João!
+
+Seu plano Vivo Premium 10GB expira em 3 dias!
+💰 Renove por R$ 49,90
+
+🔄 Quer renovar agora?
+
+Digite 'SIM' para renovar ou 'MUDAR' para ver outros planos."
+
+Customer: "SIM"
+Orchestrator Agent: Coordinates with sofIA Agent for AP2 payment processing
 ```
 
-#### 4.1.3 Payment Processing
+#### 4.1.3 Plan Upgrade Flow
 ```
-Customer: "Yes, pay with PIX"
-sofIA Payment Agent: Creates Payment Mandate
-BEMOBI Agent: Processes payment via gateway
-Response: "✅ Payment Successful!
-Transaction ID: a2a_txn_1734567890
-Amount: BRL 15.50
-Status: Completed
-🔐 Secured by AP2 Protocol
-🤝 Processed via A2A Communication"
+Customer: "I want to upgrade my plan"
+Plan Management Tool: Gets current plan and upgrade options
+Response: "📈 Opções de upgrade para seu Vivo Premium 10GB:
+
+⬆️ Vivo Ultimate 20GB - R$ 79,90/mês
+   +10GB de dados (+R$ 30,00/mês)
+   ✅ Streaming grátis incluído
+
+💰 Custo do upgrade hoje: R$ 22,50 (proporcional)
+
+Confirma o upgrade?"
+
+Customer: "Yes"
+sofIA Agent: Creates AP2 Payment Mandate for plan change
+Response: "✅ Upgrade realizado com sucesso!
+🔐 Processado via AP2 Protocol
+📱 Novo plano ativo: Vivo Ultimate 20GB"
 ```
 
 ### 4.2 Merchant Configuration
@@ -290,33 +335,38 @@ Status: Completed
 
 ## 5. Implementation Roadmap
 
-### 5.1 Phase 1: Core AP2 Implementation (Week 1-2)
+### 5.1 Phase 1: Core Subscription Management (Week 1-2)
 - [x] AP2 Protocol core implementation
-- [x] Basic agent architecture setup
+- [x] Orchestrator and sofIA agent architecture
 - [x] WhatsApp Web.js bridge integration
-- [x] Multi-agent orchestration framework
-- [ ] AP2 mandate testing and validation
+- [x] Subscription management tool with Supabase integration
+- [x] Plan management tool with upgrade/downgrade logic
+- [x] Renewal orchestration tool with proactive monitoring
+- [x] Mock data integration for testing
 
-### 5.2 Phase 2: BEMOBI Integration (Week 3-4)
-- [ ] BEMOBI API integration tool development
-- [ ] Multi-merchant configuration system
-- [ ] Regional payment method routing
-- [ ] Webhook handling and status updates
-- [ ] Merchant onboarding flow
+### 5.2 Phase 2: Advanced Features (Week 3-4)
+- [ ] Complete Supabase database schema implementation
+- [ ] Real telecom operator API integrations (VIVO, CLARO, OI, TIM)
+- [ ] Advanced plan recommendation engine
+- [ ] Automated renewal processing with payment scheduling
+- [ ] Multi-language support (Portuguese/English)
+- [ ] Usage analytics and subscription insights
 
 ### 5.3 Phase 3: Production Readiness (Week 5-6)
-- [ ] Security hardening and penetration testing
-- [ ] Performance optimization and load testing
-- [ ] Monitoring and alerting system
-- [ ] Documentation and deployment guides
-- [ ] BEMOBI pilot program setup
+- [ ] WhatsApp Business API integration (upgrade from Web.js)
+- [ ] Advanced security hardening and AP2 compliance testing
+- [ ] Performance optimization for subscription queries
+- [ ] Comprehensive monitoring and alerting system
+- [ ] Subscription data backup and recovery systems
+- [ ] BEMOBI telecom client pilot program setup
 
 ### 5.4 Phase 4: Scale and Launch (Week 7-8)
-- [ ] Multi-region deployment
-- [ ] Merchant training and support
-- [ ] Marketing materials and demo preparation
-- [ ] Go-to-market strategy execution
-- [ ] Post-launch monitoring and optimization
+- [ ] Multi-region deployment across LATAM
+- [ ] Telecom operator training and integration support
+- [ ] Customer onboarding and migration tools
+- [ ] Advanced analytics dashboard for operators
+- [ ] Go-to-market strategy execution with telecom partners
+- [ ] Post-launch subscription optimization and churn reduction
 
 ---
 
@@ -342,11 +392,18 @@ Status: Completed
 - **Tokens**: JWT for authorization tokens
 - **Storage**: JSON-based mandate storage with encryption
 
-#### 6.1.4 BEMOBI Integration
-- **API**: REST API integration with BEMOBI payment gateway
-- **Authentication**: API key-based authentication
-- **Webhooks**: HTTP webhook endpoints for real-time updates
-- **Error Handling**: Comprehensive error handling and retry logic
+#### 6.1.4 Database & Storage
+- **Database**: Supabase (PostgreSQL) for subscription data management
+- **Tables**: users, operators, subscription_plans, user_subscriptions, renewal_reminders, subscription_payments
+- **Real-time**: Supabase real-time subscriptions for live data updates
+- **Authentication**: Supabase Auth for user management and session handling
+- **API**: Supabase REST API and PostgreSQL functions for complex queries
+
+#### 6.1.5 BEMOBI Integration
+- **Payment Gateway**: BEMOBI API integration for telecom operator payments
+- **Authentication**: API key-based authentication with fallback to mock mode
+- **Webhook Handling**: Real-time payment status updates and subscription confirmations
+- **Error Handling**: Comprehensive error handling with retry logic and graceful degradation
 
 ### 6.2 Infrastructure Requirements
 
@@ -447,16 +504,19 @@ Status: Completed
 - **AP2 Compliance**: 100% mandate verification success rate
 
 ### 9.2 Business Metrics
-- **Merchant Adoption**: 50+ merchants onboarded in first 6 months
-- **Transaction Volume**: $1M+ in processed transactions monthly
-- **Customer Satisfaction**: 4.5+ star rating from merchants
-- **Revenue Growth**: 25% month-over-month revenue growth
+- **Telecom Operator Adoption**: 4 major operators (VIVO, CLARO, OI, TIM) onboarded in first 6 months
+- **Subscription Volume**: 100,000+ active subscriptions managed monthly
+- **Churn Reduction**: 30%+ reduction in involuntary churn through proactive renewals
+- **Plan Migration Revenue**: R$ 500K+ monthly from plan upgrades and changes
+- **Customer Satisfaction**: 4.5+ star rating from telecom customers
 
-### 9.3 User Experience Metrics
-- **Conversation Completion Rate**: 85%+ successful purchase completions
-- **Time to Purchase**: < 3 minutes average purchase time
-- **Customer Support Tickets**: < 5% of transactions require support
-- **WhatsApp Engagement**: 90%+ message response rate
+### 9.3 Subscription Management Metrics
+- **Renewal Success Rate**: 85%+ successful subscription renewals through WhatsApp
+- **Proactive Reminder Effectiveness**: 70%+ response rate to renewal reminders
+- **Plan Migration Completion**: 90%+ successful plan upgrade/downgrade completions
+- **Time to Renewal**: < 2 minutes average renewal time via WhatsApp
+- **Subscription Discovery**: 95%+ accuracy in subscription data synchronization
+- **Customer Support Reduction**: 60%+ reduction in subscription-related support tickets
 
 ---
 
@@ -464,62 +524,66 @@ Status: Completed
 
 ### 10.1 Target Market Segments
 
-#### 10.1.1 Primary: BEMOBI's Existing Merchants
-- **SMBs in LATAM**: Cafes, restaurants, small retailers
-- **E-commerce in Africa**: Online stores, digital services
-- **Mobile-first businesses in Asia**: Apps, digital content
+#### 10.1.1 Primary: BEMOBI's Telecom Operator Clients
+- **VIVO**: Brazil's largest telecom operator with 95M+ subscribers
+- **CLARO**: Major operator with focus on mobile data plans
+- **OI**: Traditional operator with strong postpaid subscriber base
+- **TIM**: Growing operator with competitive prepaid offerings
 
-#### 10.1.2 Secondary: New Market Expansion
-- **WhatsApp-first businesses**: Companies already using WhatsApp for sales
-- **Digital natives**: Startups and tech companies
-- **Traditional businesses**: Brick-and-mortar stores going digital
+#### 10.1.2 Secondary: Telecom Customer Segments
+- **Mobile-first users**: Customers who primarily use WhatsApp for communication
+- **Subscription-heavy users**: Customers with multiple active telecom subscriptions
+- **Digital natives**: Tech-savvy customers comfortable with app-based subscription management
+- **Traditional customers**: Users who prefer simple, conversational interfaces over complex apps
 
 ### 10.2 Launch Strategy
 
 #### 10.2.1 Pilot Program
-- **Phase 1**: 5 select BEMOBI merchants for 30-day pilot
-- **Phase 2**: 25 merchants across all regions for 60-day pilot
-- **Phase 3**: Full rollout to BEMOBI's entire merchant base
+- **Phase 1**: Single operator (VIVO) with 1,000 active subscribers for 30-day pilot
+- **Phase 2**: Two operators (VIVO, CLARO) with 10,000 subscribers for 60-day pilot
+- **Phase 3**: All four operators with comprehensive subscription management rollout
 
 #### 10.2.2 Marketing Approach
-- **BEMOBI Partnership**: Joint marketing and sales efforts
-- **Case Studies**: Success stories from pilot merchants
-- **Demo Environment**: Interactive demos for potential merchants
-- **Conference Presence**: Fintech and payments industry events
+- **BEMOBI-Operator Partnership**: Joint go-to-market with telecom operators
+- **Churn Reduction Case Studies**: Demonstrate measurable reduction in involuntary churn
+- **WhatsApp Demo Environment**: Live demos showing subscription management flows
+- **Telecom Industry Events**: Presence at mobile and telecom conferences in LATAM
 
 ### 10.3 Support Strategy
 
-#### 10.3.1 Merchant Onboarding
-- **Setup Assistance**: Dedicated onboarding specialists
-- **Training Programs**: Video tutorials and documentation
-- **24/7 Support**: Round-the-clock technical support
-- **Success Managers**: Dedicated account managers for enterprise clients
+#### 10.3.1 Operator Onboarding
+- **Technical Integration**: Dedicated integration specialists for operator API connections
+- **Subscription Data Migration**: Seamless migration of existing subscription databases
+- **Training Programs**: Comprehensive training for operator customer service teams
+- **24/7 Support**: Round-the-clock technical support for subscription management
 
 #### 10.3.2 Customer Success
-- **Analytics Dashboard**: Real-time performance metrics
-- **Optimization Recommendations**: AI-powered suggestions for improvement
-- **A/B Testing**: Continuous optimization of conversation flows
-- **Feedback Loops**: Regular merchant feedback collection and implementation
+- **Subscription Analytics Dashboard**: Real-time subscription metrics and churn analysis
+- **Renewal Optimization**: AI-powered recommendations for improving renewal rates
+- **A/B Testing**: Continuous optimization of renewal reminder messaging
+- **Operator Feedback Loops**: Regular feedback collection from telecom operators and customers
 
 ---
 
 ## 11. Conclusion
 
-sofIA represents a transformative opportunity for BEMOBI to lead the conversational commerce revolution in emerging markets. By implementing Google's AP2 Protocol and creating a sophisticated multi-agent system, we can provide BEMOBI's merchants with a competitive advantage that significantly improves customer experience while reducing operational costs.
+sofIA represents a transformative opportunity for BEMOBI to lead the subscription management revolution in the telecom industry. By implementing Google's AP2 Protocol and creating a sophisticated subscription orchestration system, we can provide BEMOBI's telecom operator clients with a competitive advantage that significantly reduces churn while improving customer experience.
 
 The combination of:
-- **AP2 Protocol compliance** for security and regulatory adherence
-- **Multi-agent orchestration** for intelligent conversation management  
-- **WhatsApp integration** for maximum customer reach
-- **BEMOBI payment gateway** for seamless transaction processing
+- **Intelligent Subscription Management** with Supabase-powered data synchronization
+- **Proactive Renewal Orchestration** for automated churn reduction
+- **Seamless Plan Management** with real-time cost calculations and AP2 payments
+- **WhatsApp Integration** for natural, conversational subscription management
+- **AP2 Protocol compliance** for secure subscription-related payment processing
 
-Creates a unique value proposition that positions BEMOBI as the go-to platform for WhatsApp-based commerce in LATAM, Africa, and Asia.
+Creates a unique value proposition that positions BEMOBI as the leading subscription management platform for telecom operators in LATAM, with potential expansion to other subscription-based industries.
 
-This PRD serves as the foundation for building a production-ready system that can scale from pilot programs to enterprise deployments, driving significant revenue growth for BEMOBI while revolutionizing how customers interact with merchants in emerging markets.
+This PRD serves as the foundation for building a production-ready subscription management system that can scale from pilot programs with individual operators to comprehensive deployments across the entire telecom ecosystem, driving significant churn reduction and revenue growth for BEMOBI's operator clients while revolutionizing how customers manage their telecom subscriptions.
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: January 2025  
-**Next Review**: February 2025  
+**Document Version**: 2.0 (Updated to reflect subscription management focus)
+**Last Updated**: September 2025
+**Next Review**: October 2025
 **Approved By**: HACKTUDO 2025 Development Team
+**Major Changes**: Pivoted from general commerce to telecom subscription management with Supabase integration
