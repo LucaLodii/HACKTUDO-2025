@@ -81,7 +81,7 @@ async def _onboard_demo_merchants():
         print(f"Warning: Demo merchant onboarding failed: {e}")
 
 
-def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[str, Any]:
+async def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[str, Any]:
     """Process user message and coordinate A2A communication"""
 
     # Initialize user session
@@ -95,11 +95,10 @@ def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[s
     session = _user_sessions[user_id]
     session["conversation_history"].append({"role": "user", "message": message})
 
-    print(f"💬 Processing message: '{message}' from user: {user_id}")
-    print(f"🔄 Current state: {session['payment_state']}")
+    print(f"🔄 State: {session['payment_state']} | History: {len(session['conversation_history'])} messages")
 
     # Check if agent detected specific intents and coordinate accordingly
-    coordination_result = _handle_agent_intent(agent_reply, message, user_id, session)
+    coordination_result = await _handle_agent_intent(agent_reply, message, user_id, session)
 
     session_updates = {}
     if coordination_result:
@@ -119,33 +118,38 @@ def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[s
     }
 
 
-def _handle_agent_intent(agent_reply: str, message: str, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
+async def _handle_agent_intent(agent_reply: str, message: str, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
     """Handle A2A coordination based on agent's intelligent intent detection"""
 
     # Check if agent detected payment intent
     if "[PAYMENT_INTENT]" in agent_reply and session["payment_state"] == "idle":
-        print("💳 Agent detected payment intent - coordinating with AP2 agent!")
+        print("💳 Payment Intent Detected → Coordinating with AP2 agent")
         return _create_payment_intent(message, user_id, session)
 
     # Check if agent detected payment confirmation
     elif "[PAYMENT_CONFIRM]" in agent_reply and session["payment_state"] == "cart_created":
-        print("💳 Agent detected payment confirmation - requesting payment method!")
-        return _request_payment_method(user_id, session)
+        print("💳 Payment Confirmed → Requesting payment method")
+        return await _request_payment_method(user_id, session)
 
     # Check if user is providing credentials or KYC data
     elif session["payment_state"] in ["credential_collection", "payment_method_requested"]:
-        print("🔐 Processing user credentials with enhanced AP2 flow!")
+        print("🔐 Processing credentials with enhanced AP2 flow")
         # Handle async function call for enhanced credential processing
         import asyncio
         try:
-            return asyncio.run(_process_enhanced_credentials(message, user_id, session))
+            return await _process_enhanced_credentials(message, user_id, session)
         except Exception as e:
             print(f"Enhanced credential processing error: {e}")
             return {
                 "reply": "❌ Erro ao processar credenciais AP2. Tente novamente.",
                 "session_updates": {"payment_state": "cart_created"}
             }
-    
+
+    # Check if user provided boleto code when waiting for amount/details
+    elif session["payment_state"] == "awaiting_amount" and _looks_like_boleto(message):
+        print("🧾 Boleto code detected → Using structured parsing (avoiding AI hallucination)")
+        return _process_boleto_code(message, user_id, session)
+
     return None
 
 
@@ -306,7 +310,7 @@ Obrigada por usar a sofIA! Posso ajudar com mais alguma coisa?"""
         }
 
 
-def _request_payment_method(user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
+async def _request_payment_method(user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
     """Request payment method from user (AP2 Step 2.5 - Enhanced Credential Collection)"""
 
     try:
@@ -316,12 +320,12 @@ def _request_payment_method(user_id: str, session: Dict[str, Any]) -> Dict[str, 
         user_service = _get_user_credential_service()
 
         # Initiate credential flow based on amount and user
-        credential_flow = asyncio.run(user_service.initiate_whatsapp_credential_flow(
+        credential_flow = await user_service.initiate_whatsapp_credential_flow(
             user_id=user_id,
             payment_method="auto_detect",  # Will be detected from user input
             amount=product_info['price'],
             currency=product_info['currency']
-        ))
+        )
 
         # Enhanced payment method request with AP2 credential flow
         reply = f"""💳 **Pagamento Seguro AP2 Protocol**
@@ -824,3 +828,127 @@ If they didn't specify an amount and it's needed (like PIX transfer), set requir
 def get_user_session(user_id: str) -> Dict[str, Any]:
     """Get user session information"""
     return _user_sessions.get(user_id, {})
+
+
+def _looks_like_boleto(message: str) -> bool:
+    """Check if message looks like a boleto barcode"""
+    # Remove spaces and check if it's a numeric string of expected length
+    cleaned = message.replace(" ", "").replace("-", "").replace(".", "")
+
+    # Brazilian boleto barcodes are typically 44-48 digits
+    if cleaned.isdigit() and len(cleaned) >= 44:
+        return True
+
+    # Also detect if user explicitly says it's a boleto
+    message_lower = message.lower()
+    if any(keyword in message_lower for keyword in ["boleto", "código de barras", "codigo"]):
+        return True
+
+    return False
+
+
+def _process_boleto_code(message: str, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
+    """Process boleto barcode and create payment cart"""
+
+    try:
+        # Extract the numeric code
+        boleto_code = message.replace(" ", "").replace("-", "").replace(".", "")
+
+        # Parse boleto - will throw exception if it fails
+        parsed_boleto = _parse_boleto_code(boleto_code)
+
+        # Create product info for boleto payment
+        product_info = {
+            "name": f"Boleto - {parsed_boleto['recipient']}",
+            "price": parsed_boleto['amount'],
+            "currency": "BRL",
+            "category": "boleto_payment",
+            "boleto_code": boleto_code,
+            "due_date": parsed_boleto.get('due_date', 'A vencer')
+        }
+
+        # Store in session and transition to cart created
+        session_updates = {
+            "payment_state": "cart_created",
+            "product_info": product_info,
+            "boleto_code": boleto_code
+        }
+
+        # Create formatted reply
+        reply = f"""🧾 **Boleto Identificado**
+
+**Beneficiário:** {parsed_boleto['recipient']}
+💰 **Valor:** R$ {parsed_boleto['amount']:.2f}
+📅 **Vencimento:** {parsed_boleto.get('due_date', 'A vencer')}
+🔢 **Código:** {boleto_code[:12]}...
+
+**Confirmar pagamento?** (Responda 'sim' ou 'não')"""
+
+        return {
+            "reply": reply,
+            "session_updates": session_updates
+        }
+
+    except Exception as e:
+        print(f"Boleto processing error: {e}")
+        return {
+            "reply": "❌ Erro ao processar boleto. Tente novamente ou digite o código manualmente.",
+            "session_updates": {}
+        }
+
+
+def _parse_boleto_code(boleto_code: str) -> Dict[str, Any]:
+    """Parse Brazilian boleto barcode - throws exception if parsing fails"""
+
+    if not boleto_code or len(boleto_code) < 44:
+        raise ValueError("Boleto code too short or invalid")
+
+    try:
+        # Extract bank code (first 3 digits) - this is reliable
+        bank_code = boleto_code[:3]
+
+        # Extract amount using the position that worked: 37:47
+        if len(boleto_code) >= 47:
+            amount_str = boleto_code[37:47]  # 10 digits for amount in centavos
+            if not amount_str.isdigit():
+                raise ValueError(f"Amount section is not numeric: {amount_str}")
+
+            amount_centavos = int(amount_str)
+            amount = amount_centavos / 100.0
+
+            # Sanity check - reasonable amount range
+            if amount <= 0 or amount > 50000:
+                raise ValueError(f"Amount out of reasonable range: R$ {amount}")
+        else:
+            raise ValueError("Boleto too short to extract amount")
+
+        # Bank names mapping
+        bank_names = {
+            "001": "Banco do Brasil",
+            "033": "Santander",
+            "104": "Caixa Econômica",
+            "237": "Bradesco",
+            "260": "Nu Pagamentos",
+            "341": "Itaú Unibanco",
+            "356": "Banco Real",
+            "389": "Banco Mercantil",
+            "422": "Banco Safra",
+            "655": "Banco Votorantim",
+            "745": "Citibank"
+        }
+
+        recipient = bank_names.get(bank_code, f"Banco {bank_code}")
+
+        print(f"✅ Boleto parsed successfully: {recipient} - R$ {amount}")
+
+        return {
+            "amount": amount,
+            "recipient": recipient,
+            "bank_code": bank_code,
+            "due_date": "Vencimento não especificado",
+            "raw_code": boleto_code
+        }
+
+    except Exception as e:
+        print(f"❌ Boleto parsing failed: {e}")
+        raise Exception(f"Não foi possível processar o boleto: {e}")

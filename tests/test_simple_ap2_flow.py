@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from orchestrator.tools.orchestration_tool import process_user_message
 
 
-def test_basic_ap2_flow():
+async def test_basic_ap2_flow():
     """Test basic AP2 flow without complex merchant verification"""
 
     print("🧪 Testing Basic AP2 Flow")
@@ -23,7 +23,7 @@ def test_basic_ap2_flow():
 
     # Step 1: Payment Intent
     print("\n🔄 Step 1: Payment Intent")
-    result1 = process_user_message(
+    result1 = await process_user_message(
         'I want to buy coffee', user_id,
         '[PAYMENT_INTENT] I can help you buy coffee!'
     )
@@ -34,7 +34,7 @@ def test_basic_ap2_flow():
 
     # Step 2: Payment Confirmation
     print("\n🔄 Step 2: Payment Confirmation")
-    result2 = process_user_message(
+    result2 = await process_user_message(
         'yes', user_id,
         '[PAYMENT_CONFIRM] Great! Let me process that payment.'
     )
@@ -45,7 +45,7 @@ def test_basic_ap2_flow():
 
     # Step 3: KYC Verification
     print("\n🔄 Step 3: KYC Verification")
-    result3 = process_user_message(
+    result3 = await process_user_message(
         'DADOS João Test 12345678901 11888999777', user_id, ''
     )
 
@@ -141,7 +141,7 @@ def test_merchant_registry():
         return False
 
 
-if __name__ == "__main__":
+async def run_simple_tests():
     """Run simple tests"""
 
     print("🚀 Starting Simple AP2 Tests")
@@ -149,7 +149,7 @@ if __name__ == "__main__":
 
     try:
         # Test basic flow
-        basic_success = test_basic_ap2_flow()
+        basic_success = await test_basic_ap2_flow()
 
         # Test services
         credential_success = test_credential_service_directly()
@@ -172,3 +172,8 @@ if __name__ == "__main__":
         print(f"\n💥 Test suite error: {e}")
         import traceback
         traceback.print_exc()
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(run_simple_tests())

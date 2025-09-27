@@ -35,14 +35,14 @@ class TestEnhancedAP2Credentials:
         self.test_amount = 15.50
         self.test_currency = "BRL"
 
-    def test_complete_enhanced_ap2_flow(self):
+    async def test_complete_enhanced_ap2_flow(self):
         """Test the complete enhanced AP2 flow with all credential systems"""
 
         print("=== Testing Complete Enhanced AP2 Credential Flow ===")
 
         # Step 1: Payment Intent
         print("\n🔄 Step 1: Payment Intent")
-        result1 = process_user_message(
+        result1 = await process_user_message(
             message='I want to buy premium coffee',
             user_id=self.test_user_id,
             agent_reply='[PAYMENT_INTENT] I can help you buy premium coffee!'

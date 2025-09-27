@@ -54,7 +54,8 @@ If the user is canceling a purchase, start with [PAYMENT_CANCEL].
         try:
             # Try to use orchestrator agent properly
             # For now, bypass agent invocation and use the tool directly with smart fallback
-            print(f"Processing message: '{message}' from user: {user_id}")
+            print(f"\n🔷 ═══ NEW MESSAGE ═══ Session: {user_id[-8:]} ═══")
+            print(f"📝 Message: '{message}'")
 
             # Use Gemini directly through a simple API call for intent detection
             import google.generativeai as genai
@@ -66,18 +67,27 @@ If the user is canceling a purchase, start with [PAYMENT_CANCEL].
             # Get user session to understand context
             session = get_user_session(user_id)
             current_state = session.get("payment_state", "idle")
+            conversation_history = session.get("conversation_history", [])
 
-            # Create prompt for intent detection with context
-            intent_prompt = f"""You are sofIA, an AI payment assistant. Analyze this user message and respond naturally.
+            # Build conversation context
+            context_messages = ""
+            if len(conversation_history) > 1:  # More than just current message
+                recent_history = conversation_history[-7:]  # Last 7 messages for context
+                context_messages = "\n".join([f"User: {msg['message']}" for msg in recent_history[:-1]])  # Exclude current message
+                context_messages = f"\nRecent conversation:\n{context_messages}\n"
 
-User message: "{message}"
+            # Create prompt for intent detection with full context
+            intent_prompt = f"""You are sofIA, an AI payment assistant. Analyze this user message and respond naturally while maintaining conversation context.
+
+{context_messages}Current user message: "{message}"
 Current conversation state: {current_state}
 
 Instructions:
 - If you detect purchase intent (wants to buy something) and state is 'idle', start your response with [PAYMENT_INTENT]
 - If user is confirming a purchase (yes/sim/ok/confirm) and state is 'cart_created', start with [PAYMENT_CONFIRM]
 - If user is canceling a purchase (no/não/cancel) and state is 'cart_created', start with [PAYMENT_CANCEL]
-- Otherwise, respond normally as a friendly payment assistant
+- Remember the conversation context and respond accordingly
+- Be helpful and maintain continuity with previous messages
 
 Respond naturally in Portuguese or English as appropriate."""
 
@@ -85,11 +95,15 @@ Respond naturally in Portuguese or English as appropriate."""
             response = model.generate_content(intent_prompt)
             agent_reply = response.text if response.text else "Hello! I'm sofIA, your AI payment assistant. How can I help you today?"
 
-            print(f"Orchestrator agent response: {agent_reply}")
+            print(f"🤖 Agent Response: {agent_reply}")
+            print(f"🔧 Processing with orchestrator...")
 
             # Use orchestrator tool to handle A2A coordination
-            result = process_user_message(message, user_id, agent_reply)
+            result = await process_user_message(message, user_id, agent_reply)
             reply = result.get("reply", "Sorry, I couldn't process your message.")
+
+            print(f"✅ Final Reply: {reply[:100]}{'...' if len(reply) > 100 else ''}")
+            print(f"🔷 ═══ END SESSION {user_id[-8:]} ═══\n")
 
         except Exception as e:
             print(f"Orchestrator processing error: {e}")
