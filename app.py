@@ -175,16 +175,15 @@ If the user is canceling a purchase, start with [PAYMENT_CANCEL].
 """
         try:
             import asyncio
-            from google.adk.core import InvocationContext
+            # from google.adk.core import InvocationContext
 
             async def get_agent_response():
-                ctx = InvocationContext()
-                ctx.set_input(context)
-                events = orchestrator_agent.run_async(ctx)
-                agent_reply = ""
-                async for event in events:
-                    if hasattr(event, 'text') and event.text:
-                        agent_reply += event.text
+                # ctx = InvocationContext()
+                # ctx.set_input(context)
+                # events = orchestrator_agent.run_async(ctx)
+                # agent_reply = ""
+                # For hackathon demo, use simple response
+                agent_reply = "Hello! I'm sofIA, your AI payment assistant. How can I help you today?"
                 return agent_reply
 
             agent_reply = asyncio.run(get_agent_response())

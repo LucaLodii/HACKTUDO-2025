@@ -2,7 +2,14 @@
 Memory Tool - Tool for agents to access and manage Supabase memory
 """
 
-from google.adk.tools import Tool
+# from google.adk.tools import Tool
+# Using a simple tool class for hackathon
+class Tool:
+    def __init__(self, name, description, parameters, execute_func):
+        self.name = name
+        self.description = description
+        self.parameters = parameters
+        self.execute = execute_func
 from typing import Dict, Any, List
 import json
 
@@ -193,7 +200,7 @@ memory_tool = Tool(
             "default": 3
         }
     },
-    function=lambda action, user_id, **kwargs: {
+    execute_func=lambda action, user_id, **kwargs: {
         "get_context": lambda: get_user_memory_context(user_id),
         "remember_conversation": lambda: remember_conversation_turn(
             user_id, 

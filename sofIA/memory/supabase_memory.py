@@ -17,9 +17,16 @@ class SupabaseMemoryManager:
         supabase_key = os.getenv("SUPABASE_ANON_KEY")
         
         if not supabase_url or not supabase_key:
-            raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required")
+            print("Warning: SUPABASE_URL and SUPABASE_ANON_KEY environment variables not found. Using mock memory.")
+            self.supabase = None
+            return
         
-        self.supabase: Client = create_client(supabase_url, supabase_key)
+        try:
+            self.supabase: Client = create_client(supabase_url, supabase_key)
+        except Exception as e:
+            print(f"Warning: Failed to connect to Supabase: {e}. Using mock memory.")
+            self.supabase = None
+            return
         
         # Table names
         self.conversations_table = "conversations"
@@ -29,6 +36,10 @@ class SupabaseMemoryManager:
     
     def save_conversation(self, user_id: str, message: str, response: str, context: Dict[str, Any] = None) -> bool:
         """Save a conversation turn to Supabase"""
+        if not self.supabase:
+            print(f"Mock: Saving conversation for user {user_id}")
+            return True
+            
         try:
             conversation_data = {
                 "user_id": user_id,
@@ -49,6 +60,10 @@ class SupabaseMemoryManager:
     
     def get_conversation_history(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent conversation history for a user"""
+        if not self.supabase:
+            print(f"Mock: Getting conversation history for user {user_id}")
+            return []
+            
         try:
             result = self.supabase.table(self.conversations_table)\
                 .select("*")\

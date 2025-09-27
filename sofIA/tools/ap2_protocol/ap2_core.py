@@ -15,20 +15,87 @@ from cryptography.hazmat.backends import default_backend
 import jwt
 from pydantic import BaseModel, Field
 
-from ap2.types.mandate import (
-    IntentMandate,
-    CartMandate,
-    CartContents,
-    PaymentMandate,
-    PaymentMandateContents,
-)
-from ap2.types.payment_request import (
-    PaymentRequest,
-    PaymentResponse,
-    PaymentItem,
-    PaymentCurrencyAmount,
-)
+# AP2 Protocol types - using local implementations for hackathon
+# from ap2.types.mandate import (
+#     IntentMandate,
+#     CartMandate,
+#     CartContents,
+#     PaymentMandate,
+#     PaymentMandateContents,
+# )
+# AP2 Protocol types - using local implementations for hackathon
+# from ap2.types.payment_request import (
+#     PaymentRequest,
+#     PaymentResponse,
+#     PaymentItem,
+#     PaymentCurrencyAmount,
+# )
 
+# Local AP2 Protocol type definitions for hackathon
+class PaymentItem(BaseModel):
+    """Represents a payment item in a cart."""
+    name: str
+    description: str = ""
+    price: float
+    currency: str = "BRL"
+    quantity: int = 1
+
+class PaymentCurrencyAmount(BaseModel):
+    """Represents a currency amount."""
+    amount: float
+    currency: str = "BRL"
+
+class PaymentRequest(BaseModel):
+    """Represents a payment request."""
+    items: list[PaymentItem]
+    total_amount: PaymentCurrencyAmount
+    merchant_name: str
+    merchant_id: str
+
+class PaymentResponse(BaseModel):
+    """Represents a payment response."""
+    transaction_id: str
+    status: str
+    amount: PaymentCurrencyAmount
+    timestamp: str
+
+class CartContents(BaseModel):
+    """Represents the contents of a cart."""
+    items: list[PaymentItem]
+    total_amount: PaymentCurrencyAmount
+    merchant_name: str
+
+class IntentMandate(BaseModel):
+    """Represents an intent mandate."""
+    mandate_id: str
+    user_id: str
+    natural_language_description: str
+    intent_expiry: str
+    user_cart_confirmation_required: bool = True
+    created_at: str
+
+class CartMandate(BaseModel):
+    """Represents a cart mandate."""
+    mandate_id: str
+    payment_request: PaymentRequest
+    merchant_name: str
+    cart_expiry: str
+    merchant_authorization: str
+    created_at: str
+
+class PaymentMandateContents(BaseModel):
+    """Represents payment mandate contents."""
+    payment_mandate_id: str
+    merchant_agent: str
+    payment_response: PaymentResponse
+
+class PaymentMandate(BaseModel):
+    """Represents a payment mandate."""
+    mandate_id: str
+    user_id: str
+    payment_mandate_contents: PaymentMandateContents
+    user_authorization: str
+    created_at: str
 
 class VerifiableCredential(BaseModel):
     """Represents a verifiable credential for user authorization."""

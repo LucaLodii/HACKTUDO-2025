@@ -42,7 +42,8 @@ class BemobiPaymentProcessor:
         self.merchants: Dict[str, BemobiMerchant] = {}
         
         if not self.api_key:
-            raise ValueError("Bemobi API key is required")
+            print("Warning: BEMOBI API key not provided, using mock mode")
+            self.api_key = "mock_api_key"
     
     def add_merchant(self, merchant: BemobiMerchant):
         """Add a merchant to the Bemobi processor"""

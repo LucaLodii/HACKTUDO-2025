@@ -16,9 +16,12 @@ except ImportError:
     enterprise_tools = []
 
 # Build tools list dynamically based on available tools
-tools_list = [ap2_protocol_tool, whatsapp_tool, memory_tool]
+tools_list = [ap2_protocol_tool, whatsapp_tool]
 if bemobi_tool is not None:
     tools_list.append(bemobi_tool)
+
+# Add memory tool if available (skip for now due to compatibility issues)
+# tools_list.append(memory_tool)
 
 # Add enterprise tools if available
 tools_list.extend(enterprise_tools)

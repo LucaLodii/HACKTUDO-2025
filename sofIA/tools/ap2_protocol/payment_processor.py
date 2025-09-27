@@ -11,9 +11,16 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from enum import Enum
+from pydantic import BaseModel
 
-from ap2.types.payment_request import PaymentResponse, PaymentMethodData
-from .ap2_core import MandateSigner
+# from ap2.types.payment_request import PaymentResponse, PaymentMethodData
+from .ap2_core import MandateSigner, PaymentResponse
+
+# Local PaymentMethodData for hackathon
+class PaymentMethodData(BaseModel):
+    """Represents payment method data."""
+    method: str
+    details: Dict[str, Any] = {}
 
 
 class PaymentMethod(Enum):
