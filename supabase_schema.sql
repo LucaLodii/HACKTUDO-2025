@@ -2,7 +2,7 @@
 -- Run this in your Supabase SQL editor to create the required tables
 
 -- Enable Row Level Security
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
+-- Note: JWT secret configuration removed due to permission restrictions
 
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
@@ -108,22 +108,25 @@ $$ LANGUAGE plpgsql;
 -- Create a scheduled job to run cleanup (optional)
 -- SELECT cron.schedule('cleanup-old-data', '0 2 * * *', 'SELECT cleanup_old_data();');
 
--- Insert some sample data for testing (optional)
+-- Insert some sample data for testing (optional) - using ON CONFLICT to avoid duplicates
 INSERT INTO conversations (user_id, user_message, agent_response, context) VALUES
 ('demo_user_1', 'Hello sofIA!', 'Hello! I''m sofIA, your AI payment assistant. How can I help you today?', '{"payment_state": "idle"}'),
 ('demo_user_1', 'I want to buy coffee', 'I''d be happy to help you buy coffee! What type of coffee would you like?', '{"payment_state": "intent_created"}'),
-('demo_user_2', 'Send PIX to João', 'I can help you send a PIX transfer to João. What amount would you like to send?', '{"payment_state": "awaiting_amount"}');
+('demo_user_2', 'Send PIX to João', 'I can help you send a PIX transfer to João. What amount would you like to send?', '{"payment_state": "awaiting_amount"}')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO user_preferences (user_id, preference_type, preference_value) VALUES
 ('demo_user_1', 'language', 'pt-BR'),
 ('demo_user_1', 'payment_method', 'sofIA'),
 ('demo_user_2', 'language', 'pt-BR'),
-('demo_user_2', 'payment_method', 'PIX');
+('demo_user_2', 'payment_method', 'PIX')
+ON CONFLICT (user_id, preference_type) DO NOTHING;
 
 INSERT INTO transactions (user_id, transaction_id, amount, product, status) VALUES
 ('demo_user_1', 'txn_001', 12.50, 'Coffee', 'completed'),
 ('demo_user_1', 'txn_002', 28.00, 'Lunch', 'completed'),
-('demo_user_2', 'txn_003', 100.00, 'PIX Transfer', 'completed');
+('demo_user_2', 'txn_003', 100.00, 'PIX Transfer', 'completed')
+ON CONFLICT (transaction_id) DO NOTHING;
 
 -- Grant necessary permissions (adjust as needed for your setup)
 -- GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;

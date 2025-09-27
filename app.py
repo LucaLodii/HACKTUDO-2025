@@ -49,6 +49,10 @@ Analyze this message and respond naturally. If you detect purchase intent,
 start your response with [PAYMENT_INTENT].
 If the user is confirming a purchase, start with [PAYMENT_CONFIRM].
 If the user is canceling a purchase, start with [PAYMENT_CANCEL].
+
+HACKATHON DEMO MODE: Provide engaging, natural responses that showcase
+sofIA's capabilities as an AI payment assistant. Be helpful and demonstrate
+the multi-agent architecture and AP2 Protocol compliance.
 """
 
         try:
@@ -182,8 +186,11 @@ If the user is canceling a purchase, start with [PAYMENT_CANCEL].
                 # ctx.set_input(context)
                 # events = orchestrator_agent.run_async(ctx)
                 # agent_reply = ""
-                # For hackathon demo, use simple response
-                agent_reply = "Hello! I'm sofIA, your AI payment assistant. How can I help you today?"
+                   # For hackathon demo, use engaging response
+                   if "coffee" in message.lower() or "buy" in message.lower() or "purchase" in message.lower():
+                       agent_reply = "Hello! I'm sofIA, your AI payment assistant. I can help you with secure payments through WhatsApp using the AP2 Protocol. What would you like to purchase today?"
+                   else:
+                       agent_reply = "Hello! I'm sofIA, your AI payment assistant. I can help you with secure payments, money transfers, and financial services through WhatsApp. How can I assist you today?"
                 return agent_reply
 
             agent_reply = asyncio.run(get_agent_response())

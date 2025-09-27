@@ -9,23 +9,44 @@ An AI-powered payment agent that implements the [Agent Payments Protocol (AP2)](
 - **Cryptographic Security**: RSA-signed mandates with verifiable credentials
 - **Multi-Mandate Support**: Intent, Cart, and Payment mandates with proper authorization
 - **Real-time Processing**: Fast and secure payment flows with audit trails
+- **Persistent Memory**: Supabase integration for conversation history and user preferences
+- **BEMOBI Integration**: Payment gateway with mock/real modes for global deployment
+- **Multi-Agent Architecture**: Orchestrator, sofIA, BEMOBI, and WhatsApp agents
 
 ## 🏗️ Architecture
 
 ```
-sofIA Payment Agent
-├── sofIA/ (Main Agent)
-│   ├── agent.py (Google ADK agent with tools)
-│   └── prompt.py (Agent instructions and prompts)
-├── tools/ (Agent Tools)
-│   ├── ap2_protocol/
-│   │   ├── ap2_core.py (AP2 protocol implementation)
-│   │   └── ap2_tool.py (AP2 tool for agent)
-│   └── whatsapp/
-│       ├── whatsapp_tool.py (WhatsApp tool for agent)
-│       └── webhook_handler.py (Webhook processing)
+sofIA Multi-Agent Payment System
+├── orchestrator/ (Main Orchestrator)
+│   ├── agent.py (Google ADK orchestrator agent)
+│   ├── prompt.py (Orchestration instructions)
+│   └── tools/ (A2A coordination tools)
+├── sofIA/ (Payment Agent)
+│   ├── agent.py (Google ADK payment agent)
+│   ├── prompt.py (Payment instructions)
+│   ├── memory/ (Persistent memory system)
+│   │   ├── supabase_memory.py (Supabase integration)
+│   │   └── memory_tool.py (Memory tool for agents)
+│   └── tools/ (Agent Tools)
+│       ├── ap2_protocol/ (AP2 Protocol implementation)
+│       │   ├── ap2_core.py (Core AP2 types and functions)
+│       │   ├── ap2_tool.py (AP2 tool for agent)
+│       │   └── payment_processor.py (Payment processing logic)
+│       ├── bemobi/ (BEMOBI payment gateway)
+│       │   ├── bemobi_tool.py (BEMOBI integration)
+│       │   ├── mock_bemobi.py (Mock implementation)
+│       │   ├── bemobi_factory.py (Factory pattern)
+│       │   └── mock_data_generators.py (Test data)
+│       └── whatsapp/ (WhatsApp integration)
+│           ├── whatsapp_tool.py (WhatsApp tool)
+│           └── webhook_handler.py (Webhook processing)
+├── whatsapp-bridge/ (Node.js WhatsApp bridge)
+│   ├── server.js (WhatsApp Web.js server)
+│   └── package.json (Node.js dependencies)
 └── tests/ (Test suite)
-    └── test_ap2_protocol.py
+    ├── test_ap2_protocol.py
+    ├── test_supabase_connection.py
+    └── test_memory_final.py
 ```
 
 ## 📋 Prerequisites
@@ -35,6 +56,8 @@ sofIA Payment Agent
 - [uv](https://github.com/astral-sh/uv) package manager
 - Personal WhatsApp account (no Business API needed!)
 - Google AI API key (for Gemini integration)
+- Supabase account (for persistent memory storage)
+- BEMOBI API credentials (optional - mock mode available)
 
 ## 🛠️ Installation
 
@@ -51,19 +74,33 @@ sofIA Payment Agent
    npm install
    ```
 
-3. **Configure environment**:
+3. **Setup Supabase (for persistent memory)**:
+   ```bash
+   # Create Supabase project at supabase.com
+   # Run the SQL schema in Supabase SQL Editor
+   cat supabase_schema.sql
+   ```
+
+4. **Configure environment**:
    ```bash
    cp env.example .env
    # Edit .env with your configuration
    ```
 
-4. **Required environment variables**:
+5. **Required environment variables**:
    ```bash
    # WhatsApp Bridge
    WHATSAPP_BRIDGE_URL=http://localhost:3001
 
    # Google AI (Optional for enhanced AI features)
    GOOGLE_API_KEY=your_google_api_key
+
+   # Supabase (for persistent memory)
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_ANON_KEY=your_supabase_anon_key
+
+   # BEMOBI (optional - mock mode available)
+   BEMOBI_MOCK_MODE=true
 
    # Server
    HOST=0.0.0.0
@@ -73,7 +110,31 @@ sofIA Payment Agent
 
 ## 🚀 Usage
 
-### **Quick Start (WhatsApp Web.js)**
+### **Quick Start (Hackathon Demo)**
+
+1. **Test the system**:
+   ```bash
+   # Test Supabase connection
+   python test_supabase_connection.py
+   
+   # Test memory system
+   python test_memory_final.py
+   ```
+
+2. **Start the API**:
+   ```bash
+   python app.py
+   ```
+
+3. **Test WhatsApp integration**:
+   ```bash
+   # Test message processing
+   curl -X POST http://localhost:8000/process-whatsapp-message \
+     -H "Content-Type: application/json" \
+     -d '{"user_id": "demo_user", "message": "Hello sofIA!"}'
+   ```
+
+### **Full WhatsApp Integration**
 
 1. **Start WhatsApp Bridge**:
    ```bash
