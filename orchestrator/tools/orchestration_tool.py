@@ -95,7 +95,7 @@ def _create_payment_intent(message: str, user_id: str, session: Dict[str, Any]) 
     # AP2 Protocol Step 1: Create Intent Mandate
     try:
         from sofIA.tools.ap2_protocol.ap2_core import AP2PaymentAgent
-        from ap2.types.payment_request import PaymentItem, PaymentCurrencyAmount
+        from sofIA.tools.ap2_protocol.types.payment_request import PaymentItem, PaymentCurrencyAmount
 
         print(f"🤖 sofIA Agent creating Intent Mandate for: {product_info['name']}")
 
@@ -176,7 +176,7 @@ def _process_payment(user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
         cart_id = session["cart_id"]
 
         # AP2 Protocol Step 3: Agent executes payment after user confirmation
-        from ap2.types.payment_request import PaymentResponse
+        from sofIA.tools.ap2_protocol.types.payment_request import PaymentResponse
 
         print("🤖 sofIA Agent executing payment after user confirmation")
 

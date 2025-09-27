@@ -272,3 +272,4 @@ For sofIA integration issues:
 - Verify AP2 mandate creation
 - Review WhatsApp webhook setup
 - Test with demo scenarios first
+

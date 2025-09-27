@@ -366,3 +366,4 @@ docker-compose logs -f
 5. **Test payment flows with real transactions**
 
 Your sofIA payment system is now ready for production use! 🚀
+

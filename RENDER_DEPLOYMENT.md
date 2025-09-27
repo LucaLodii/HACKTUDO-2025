@@ -231,3 +231,4 @@ Your sofIA payment system is now live on Render! 🚀
 - [Render Documentation](https://render.com/docs)
 - [sofIA Agent Health](https://sofia-payment-agent.onrender.com/health)
 - [WhatsApp Bridge Health](https://whatsapp-bridge.onrender.com/health)
+

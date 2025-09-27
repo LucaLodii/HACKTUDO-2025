@@ -16,8 +16,8 @@ from sofIA.tools.ap2_protocol.ap2_core import (
     WhatsAppPaymentFlow,
     VerifiableCredential
 )
-from ap2.types.mandate import IntentMandate, CartMandate
-from ap2.types.payment_request import PaymentItem, PaymentCurrencyAmount
+from sofIA.tools.ap2_protocol.types.mandate import IntentMandate, CartMandate
+from sofIA.tools.ap2_protocol.types.payment_request import PaymentItem, PaymentCurrencyAmount
 
 
 class TestMandateSigner:
@@ -34,8 +34,8 @@ class TestMandateSigner:
     
     def test_cart_hash_computation(self):
         """Test cart contents hashing."""
-        from ap2.types.mandate import CartContents
-        from ap2.types.payment_request import PaymentRequest
+        from sofIA.tools.ap2_protocol.types.mandate import CartContents
+        from sofIA.tools.ap2_protocol.types.payment_request import PaymentRequest
         
         # Create sample cart contents
         payment_request = PaymentRequest(
@@ -60,7 +60,8 @@ class TestMandateSigner:
             user_cart_confirmation_required=True,
             payment_request=payment_request,
             cart_expiry=(datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat(),
-            merchant_name="Test Merchant"
+            merchant_name="Test Merchant",
+            user_id="test-user-123"
         )
         
         hash1 = self.signer._compute_cart_hash(cart_contents)
@@ -72,8 +73,8 @@ class TestMandateSigner:
     
     def test_cart_signing_and_verification(self):
         """Test cart mandate signing and verification."""
-        from ap2.types.mandate import CartContents
-        from ap2.types.payment_request import PaymentRequest
+        from sofIA.tools.ap2_protocol.types.mandate import CartContents
+        from sofIA.tools.ap2_protocol.types.payment_request import PaymentRequest
         
         # Create sample cart contents
         payment_request = PaymentRequest(
@@ -98,7 +99,8 @@ class TestMandateSigner:
             user_cart_confirmation_required=True,
             payment_request=payment_request,
             cart_expiry=(datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat(),
-            merchant_name="Test Merchant"
+            merchant_name="Test Merchant",
+            user_id="test-user-123"
         )
         
         # Sign cart contents
@@ -188,7 +190,7 @@ class TestAP2PaymentAgent:
         cart_id = cart_mandate.contents.id
         
         # Create payment response
-        from ap2.types.payment_request import PaymentResponse
+        from sofIA.tools.ap2_protocol.types.payment_request import PaymentResponse
         payment_response = PaymentResponse(
             request_id=cart_id,
             method_name="basic-card",
@@ -348,22 +350,33 @@ class TestAP2ProtocolCompliance:
         signer = MandateSigner()
         
         # Test that different inputs produce different hashes
-        from ap2.types.mandate import CartContents
-        from ap2.types.payment_request import PaymentRequest
+        from sofIA.tools.ap2_protocol.types.mandate import CartContents
+        from sofIA.tools.ap2_protocol.types.payment_request import PaymentRequest
+        
+        from sofIA.tools.ap2_protocol.types.payment_request import PaymentDetails
+        
+        payment_details1 = PaymentDetails(
+            id="cart1",
+            display_items=[PaymentItem(label="Item 1", amount=PaymentCurrencyAmount(currency="USD", value=10.0))],
+            total=PaymentItem(label="Total", amount=PaymentCurrencyAmount(currency="USD", value=10.0))
+        )
         
         cart1 = CartContents(
             id="cart1",
             user_cart_confirmation_required=True,
             payment_request=PaymentRequest(
                 method_data=[{"supported_methods": "basic-card", "data": {}}],
-                details={
-                    "id": "cart1",
-                    "display_items": [{"label": "Item 1", "amount": {"currency": "USD", "value": 10.0}}],
-                    "total": {"label": "Total", "amount": {"currency": "USD", "value": 10.0}}
-                }
+                details=payment_details1
             ),
             cart_expiry=datetime.now(timezone.utc).isoformat(),
-            merchant_name="Merchant 1"
+            merchant_name="Merchant 1",
+            user_id="test-user-123"
+        )
+        
+        payment_details2 = PaymentDetails(
+            id="cart2",
+            display_items=[PaymentItem(label="Item 2", amount=PaymentCurrencyAmount(currency="USD", value=20.0))],
+            total=PaymentItem(label="Total", amount=PaymentCurrencyAmount(currency="USD", value=20.0))
         )
         
         cart2 = CartContents(
@@ -371,14 +384,11 @@ class TestAP2ProtocolCompliance:
             user_cart_confirmation_required=True,
             payment_request=PaymentRequest(
                 method_data=[{"supported_methods": "basic-card", "data": {}}],
-                details={
-                    "id": "cart2",
-                    "display_items": [{"label": "Item 2", "amount": {"currency": "USD", "value": 20.0}}],
-                    "total": {"label": "Total", "amount": {"currency": "USD", "value": 20.0}}
-                }
+                details=payment_details2
             ),
             cart_expiry=datetime.now(timezone.utc).isoformat(),
-            merchant_name="Merchant 2"
+            merchant_name="Merchant 2",
+            user_id="test-user-456"
         )
         
         hash1 = signer._compute_cart_hash(cart1)

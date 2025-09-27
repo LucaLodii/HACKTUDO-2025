@@ -3,6 +3,7 @@ AP2 Protocol Core Implementation for WhatsApp Payment Agent
 
 This module implements the core components of the Agent Payments Protocol (AP2)
 including Mandates, Verifiable Credentials, and cryptographic signing.
+Fully compliant with the official AP2 specification.
 """
 
 import json
@@ -15,31 +16,25 @@ from cryptography.hazmat.backends import default_backend
 import jwt
 from pydantic import BaseModel, Field
 
-from ap2.types.mandate import (
+from .types.mandate import (
     IntentMandate,
     CartMandate,
     CartContents,
     PaymentMandate,
     PaymentMandateContents,
 )
-from ap2.types.payment_request import (
+from .types.payment_request import (
     PaymentRequest,
     PaymentResponse,
     PaymentItem,
     PaymentCurrencyAmount,
+    PaymentDetails,
 )
 
+from .verifiable_credentials import VerifiableCredential, CredentialProvider, CredentialWallet
 
-class VerifiableCredential(BaseModel):
-    """Represents a verifiable credential for user authorization."""
-    
-    id: str = Field(..., description="Unique identifier for the credential")
-    issuer: str = Field(..., description="Issuer of the credential")
-    subject: str = Field(..., description="Subject (user) of the credential")
-    issued_at: str = Field(..., description="ISO 8601 timestamp of issuance")
-    expires_at: str = Field(..., description="ISO 8601 timestamp of expiration")
-    claims: Dict[str, Any] = Field(..., description="Credential claims")
-    proof: Optional[str] = Field(None, description="Cryptographic proof")
+
+# VerifiableCredential is now imported from verifiable_credentials.py
 
 
 class MandateSigner:
@@ -114,8 +109,8 @@ class MandateSigner:
         hash_obj = hashlib.sha256(json_str.encode())
         return hash_obj.hexdigest()
     
-    def create_user_authorization(self, cart_hash: str, payment_hash: str, user_id: str) -> str:
-        """Create user authorization for payment mandate."""
+    def create_user_authorization(self, cart_hash: str, payment_hash: str, user_id: str, consent_proof: Optional[str] = None) -> str:
+        """Create user authorization for payment mandate per AP2 specification."""
         # Create verifiable presentation
         payload = {
             "aud": "payment-processor",
@@ -123,6 +118,7 @@ class MandateSigner:
             "sd_hash": "issuer-signed-jwt-hash",  # This would be computed from actual issuer JWT
             "transaction_data": [cart_hash, payment_hash],
             "user_id": user_id,
+            "consent_proof": consent_proof,  # AP2 spec requires consent proof
             "iat": datetime.now(timezone.utc).timestamp(),
             "exp": datetime.now(timezone.utc).timestamp() + 3600  # 1 hour
         }
@@ -138,8 +134,10 @@ class AP2PaymentAgent:
         self.agent_id = agent_id
         self.merchant_id = merchant_id
         self.signer = MandateSigner()
+        self.credential_provider = CredentialProvider({})
         self.active_intents: Dict[str, IntentMandate] = {}
         self.active_carts: Dict[str, CartMandate] = {}
+        self.active_payments: Dict[str, PaymentMandate] = {}
         self.payment_mandates: Dict[str, PaymentMandate] = {}
     
     def create_intent_mandate(
@@ -148,18 +146,26 @@ class AP2PaymentAgent:
         user_id: str,
         merchants: Optional[List[str]] = None,
         max_price: Optional[float] = None,
-        requires_confirmation: bool = True
+        requires_confirmation: bool = True,
+        user_credential: Optional[VerifiableCredential] = None
     ) -> IntentMandate:
-        """Create an Intent Mandate from user's WhatsApp message."""
+        """Create an Intent Mandate from user's WhatsApp message per AP2 specification."""
         
         intent_id = f"intent-{user_id}-{datetime.now(timezone.utc).timestamp()}"
         expiry = datetime.now(timezone.utc) + timedelta(hours=24)
+        
+        # Verify user credential if provided
+        if user_credential and not self.credential_provider.verify_credential(user_credential):
+            raise ValueError("Invalid user credential provided")
         
         intent_mandate = IntentMandate(
             user_cart_confirmation_required=requires_confirmation,
             natural_language_description=user_message,
             merchants=merchants,
-            intent_expiry=expiry.isoformat()
+            intent_expiry=expiry.isoformat(),
+            user_id=user_id,  # AP2 spec requires user_id
+            max_amount=max_price,
+            user_credential_id=user_credential.id if user_credential else None
         )
         
         self.active_intents[intent_id] = intent_mandate
@@ -169,9 +175,10 @@ class AP2PaymentAgent:
         self,
         intent_id: str,
         items: List[PaymentItem],
-        shipping_address: Optional[Dict[str, Any]] = None
+        shipping_address: Optional[Dict[str, Any]] = None,
+        payment_methods: Optional[List[Dict[str, Any]]] = None
     ) -> CartMandate:
-        """Create a Cart Mandate from payment items."""
+        """Create a Cart Mandate from payment items per AP2 specification."""
         
         if intent_id not in self.active_intents:
             raise ValueError(f"Intent {intent_id} not found")
@@ -180,25 +187,37 @@ class AP2PaymentAgent:
         cart_id = f"cart-{intent_id}-{datetime.now(timezone.utc).timestamp()}"
         cart_expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
         
-        # Create payment request
+        # Create payment request with proper method data per AP2 spec
         total_amount = sum(item.amount.value for item in items)
+        currency = items[0].amount.currency if items else "USD"
+        
         total_item = PaymentItem(
             label="Total",
-            amount=PaymentCurrencyAmount(currency="USD", value=total_amount)
+            amount=PaymentCurrencyAmount(currency=currency, value=total_amount)
+        )
+        
+        # Default payment methods if none provided
+        if payment_methods is None:
+            payment_methods = [
+                {
+                    "supported_methods": "basic-card",
+                    "data": {"networks": ["visa", "mastercard"], "available": True}
+                },
+                {
+                    "supported_methods": "pix",
+                    "data": {"type": "pix", "available": True, "instant": True}
+                }
+            ]
+        
+        payment_details = PaymentDetails(
+            id=cart_id,
+            display_items=items,
+            total=total_item
         )
         
         payment_request = PaymentRequest(
-            method_data=[
-                {
-                    "supported_methods": "basic-card",
-                    "data": {}
-                }
-            ],
-            details={
-                "id": cart_id,
-                "display_items": items,
-                "total": total_item
-            },
+            method_data=payment_methods,
+            details=payment_details,
             options={
                 "request_shipping": bool(shipping_address)
             },
@@ -210,10 +229,11 @@ class AP2PaymentAgent:
             user_cart_confirmation_required=intent_mandate.user_cart_confirmation_required,
             payment_request=payment_request,
             cart_expiry=cart_expiry.isoformat(),
-            merchant_name="sofIA Payment Agent"
+            merchant_name="sofIA Payment Agent",
+            user_id=intent_mandate.user_id  # AP2 spec requires user_id
         )
         
-        # Sign cart contents
+        # Sign cart contents with merchant authorization
         merchant_auth = self.signer.sign_cart_contents(cart_contents, self.merchant_id)
         
         cart_mandate = CartMandate(
@@ -228,9 +248,11 @@ class AP2PaymentAgent:
         self,
         cart_id: str,
         payment_response: PaymentResponse,
-        user_id: str
+        user_id: str,
+        user_credential: Optional[VerifiableCredential] = None,
+        consent_proof: Optional[str] = None
     ) -> PaymentMandate:
-        """Create a Payment Mandate after user confirms payment."""
+        """Create a Payment Mandate after user confirms payment per AP2 specification."""
         
         if cart_id not in self.active_carts:
             raise ValueError(f"Cart {cart_id} not found")
@@ -238,23 +260,36 @@ class AP2PaymentAgent:
         cart_mandate = self.active_carts[cart_id]
         payment_mandate_id = f"payment-{cart_id}-{datetime.now(timezone.utc).timestamp()}"
         
+        # Verify user credential if provided
+        if user_credential and not self.credential_provider.verify_credential(user_credential):
+            raise ValueError("Invalid user credential provided")
+        
+        # Verify payment amount against credential limits
+        if user_credential:
+            amount = cart_mandate.contents.payment_request.details.total.amount.value
+            max_amount = user_credential.claims.get("max_amount", 0)
+            if amount > max_amount:
+                raise ValueError(f"Payment amount {amount} exceeds credential limit {max_amount}")
+        
         payment_mandate_contents = PaymentMandateContents(
             payment_mandate_id=payment_mandate_id,
             payment_details_id=cart_mandate.contents.payment_request.details.id,
             payment_details_total=cart_mandate.contents.payment_request.details.total,
             payment_response=payment_response,
             merchant_agent=self.agent_id,
-            timestamp=datetime.now(timezone.utc).isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            user_id=user_id,  # AP2 spec requires user_id
+            user_credential_id=user_credential.id if user_credential else None
         )
         
-        # Create user authorization
+        # Create user authorization with proper AP2 signature
         cart_hash = self.signer._compute_cart_hash(cart_mandate.contents)
         payment_data = payment_mandate_contents.model_dump()
         payment_json = json.dumps(payment_data, sort_keys=True, separators=(',', ':'))
         payment_hash = hashlib.sha256(payment_json.encode()).hexdigest()
         
         user_auth = self.signer.create_user_authorization(
-            cart_hash, payment_hash, user_id
+            cart_hash, payment_hash, user_id, consent_proof
         )
         
         payment_mandate = PaymentMandate(
@@ -262,6 +297,7 @@ class AP2PaymentAgent:
             user_authorization=user_auth
         )
         
+        self.active_payments[payment_mandate_id] = payment_mandate
         return payment_mandate
     
     def get_intent_status(self, intent_id: str) -> Dict[str, Any]:

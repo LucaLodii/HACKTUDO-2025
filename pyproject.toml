@@ -21,6 +21,8 @@ dependencies = [
     "google-cloud-iam>=2.15.0",
     "google-auth>=2.35.0",
     "google-generativeai>=0.8.0",
+    "supabase>=2.20.0",
+    "postgrest>=2.20.0",
 ]
 
 [tool.uv.sources]

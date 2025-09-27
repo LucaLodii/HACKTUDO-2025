@@ -398,3 +398,4 @@ _bemobi_tool = BemobiTool()
 def bemobi_tool(**kwargs):
     """Bemobi payment tool function."""
     return _bemobi_tool.execute(**kwargs)
+

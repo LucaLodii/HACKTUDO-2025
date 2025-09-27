@@ -45,3 +45,4 @@ services:
     autoDeploy: true
     dependsOn:
       - sofia-payment-agent
+

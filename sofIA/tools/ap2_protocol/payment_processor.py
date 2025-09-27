@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 
-from ap2.types.payment_request import PaymentResponse, PaymentMethodData
+from .types.payment_request import PaymentResponse, PaymentMethodData
 from .ap2_core import MandateSigner
 
 

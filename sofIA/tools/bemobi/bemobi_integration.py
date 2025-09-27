@@ -135,7 +135,7 @@ class SofiaBemobiIntegration:
                 return bemobi_intent
             
             # Step 4: Create AP2 Cart Mandate
-            from ap2.types.payment_request import PaymentItem, PaymentCurrencyAmount
+            from ..ap2_protocol.types.payment_request import PaymentItem, PaymentCurrencyAmount
             
             ap2_items = []
             for item in payment_items:
@@ -186,7 +186,7 @@ class SofiaBemobiIntegration:
                 return payment_result
             
             # Create AP2 Payment Mandate
-            from ap2.types.payment_request import PaymentResponse
+            from ..ap2_protocol.types.payment_request import PaymentResponse
             
             payment_response = PaymentResponse(
                 request_id=payment_intent_id,
@@ -295,3 +295,4 @@ def create_sofia_bemobi_integration() -> SofiaBemobiIntegration:
     )
     
     return SofiaBemobiIntegration(config)
+
