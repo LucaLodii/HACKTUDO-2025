@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from orchestrator.agent import orchestrator_agent
-from orchestrator.tools import process_user_message
+from orchestrator.tools import process_user_message, get_user_session
 
 # Load environment variables
 load_dotenv()
@@ -52,16 +52,47 @@ If the user is canceling a purchase, start with [PAYMENT_CANCEL].
 """
 
         try:
-            # Get orchestrator agent response
-            response = orchestrator_agent.run(context)
-            agent_reply = response.text if hasattr(response, 'text') else str(response)
+            # Try to use orchestrator agent properly
+            # For now, bypass agent invocation and use the tool directly with smart fallback
+            print(f"Processing message: '{message}' from user: {user_id}")
+
+            # Use Gemini directly through a simple API call for intent detection
+            import google.generativeai as genai
+
+            # Configure Gemini
+            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            model = genai.GenerativeModel('gemini-2.5-flash')
+
+            # Get user session to understand context
+            session = get_user_session(user_id)
+            current_state = session.get("payment_state", "idle")
+
+            # Create prompt for intent detection with context
+            intent_prompt = f"""You are sofIA, an AI payment assistant. Analyze this user message and respond naturally.
+
+User message: "{message}"
+Current conversation state: {current_state}
+
+Instructions:
+- If you detect purchase intent (wants to buy something) and state is 'idle', start your response with [PAYMENT_INTENT]
+- If user is confirming a purchase (yes/sim/ok/confirm) and state is 'cart_created', start with [PAYMENT_CONFIRM]
+- If user is canceling a purchase (no/não/cancel) and state is 'cart_created', start with [PAYMENT_CANCEL]
+- Otherwise, respond normally as a friendly payment assistant
+
+Respond naturally in Portuguese or English as appropriate."""
+
+            # Get response from Gemini
+            response = model.generate_content(intent_prompt)
+            agent_reply = response.text if response.text else "Hello! I'm sofIA, your AI payment assistant. How can I help you today?"
+
+            print(f"Orchestrator agent response: {agent_reply}")
 
             # Use orchestrator tool to handle A2A coordination
             result = process_user_message(message, user_id, agent_reply)
             reply = result.get("reply", "Sorry, I couldn't process your message.")
 
         except Exception as e:
-            print(f"Orchestrator agent error: {e}")
+            print(f"Orchestrator processing error: {e}")
             reply = "Hello! I'm sofIA, your AI payment assistant. How can I help you today?"
 
         return JSONResponse(content={"reply": reply})
@@ -131,8 +162,20 @@ If the user is confirming a purchase, start with [PAYMENT_CONFIRM].
 If the user is canceling a purchase, start with [PAYMENT_CANCEL].
 """
         try:
-            response = orchestrator_agent.run(context)
-            agent_reply = response.text if hasattr(response, 'text') else str(response)
+            import asyncio
+            from google.adk.core import InvocationContext
+
+            async def get_agent_response():
+                ctx = InvocationContext()
+                ctx.set_input(context)
+                events = orchestrator_agent.run_async(ctx)
+                agent_reply = ""
+                async for event in events:
+                    if hasattr(event, 'text') and event.text:
+                        agent_reply += event.text
+                return agent_reply
+
+            agent_reply = asyncio.run(get_agent_response())
             return process_user_message(message, user_id, agent_reply)
         except Exception as e:
             print(f"Demo error: {e}")

@@ -1,25 +1,36 @@
 """
 AP2 Protocol Tool for sofIA Payment Agent
 
-This tool provides AP2 protocol functionality as a tool that can be used by the agent.
+This tool provides real AP2 protocol functionality with actual payment processing
+that can be used by the agent for real transactions.
 """
 
+import asyncio
 from typing import Dict, Any, List, Optional
 from .ap2_core import AP2PaymentAgent, MandateSigner
+from .complete_ap2_integration import CompleteAP2Integration, AP2Config
 
 
 class AP2ProtocolTool:
-    """Tool for handling AP2 protocol operations."""
+    """Tool for handling real AP2 protocol operations with actual payment processing."""
     
     def __init__(self):
         self.name = "ap2_protocol"
-        self.description = "Handle Agent Payments Protocol (AP2) operations including mandate creation, signing, and verification"
+        self.description = "Handle real Agent Payments Protocol (AP2) operations including actual payment processing"
         self.parameters = {
             "type": "object",
             "properties": {
                 "operation": {
                     "type": "string",
-                    "enum": ["create_intent_mandate", "create_cart_mandate", "create_payment_mandate", "verify_mandate"],
+                    "enum": [
+                        "process_real_payment",
+                        "create_intent_mandate", 
+                        "create_cart_mandate", 
+                        "create_payment_mandate", 
+                        "verify_mandate",
+                        "get_transaction_status",
+                        "get_payment_methods"
+                    ],
                     "description": "The AP2 operation to perform"
                 },
                 "user_message": {
@@ -30,6 +41,19 @@ class AP2ProtocolTool:
                     "type": "string",
                     "description": "Unique identifier for the user"
                 },
+                "merchant_id": {
+                    "type": "string",
+                    "description": "Merchant ID for the transaction"
+                },
+                "payment_method": {
+                    "type": "string",
+                    "enum": ["auto", "card", "pix", "paypal"],
+                    "description": "Payment method to use (auto for automatic selection)"
+                },
+                "payment_data": {
+                    "type": "object",
+                    "description": "Payment credentials and data"
+                },
                 "intent_id": {
                     "type": "string",
                     "description": "Intent mandate ID for cart creation"
@@ -37,6 +61,10 @@ class AP2ProtocolTool:
                 "cart_id": {
                     "type": "string",
                     "description": "Cart mandate ID for payment creation"
+                },
+                "transaction_id": {
+                    "type": "string",
+                    "description": "Transaction ID to check status"
                 },
                 "items": {
                     "type": "array",
@@ -55,10 +83,6 @@ class AP2ProtocolTool:
                         }
                     }
                 },
-                "payment_method": {
-                    "type": "string",
-                    "description": "Payment method chosen by user"
-                },
                 "mandate_data": {
                     "type": "object",
                     "description": "Mandate data for verification"
@@ -67,18 +91,23 @@ class AP2ProtocolTool:
             "required": ["operation"]
         }
         
-        # Initialize AP2 payment agent
-        self.payment_agent = AP2PaymentAgent(
-            agent_id="sofia-payment-agent",
-            merchant_id="sofia-merchant"
+        # Initialize real AP2 integration
+        config = AP2Config(
+            agent_id="sofia-real-ap2-agent",
+            merchant_id="sofia-merchant",
+            region="latam",
+            audit_logging=True
         )
+        self.ap2_integration = CompleteAP2Integration(config)
     
     async def execute(self, **kwargs) -> Dict[str, Any]:
-        """Execute AP2 protocol operation."""
+        """Execute real AP2 protocol operation."""
         operation = kwargs.get("operation")
         
         try:
-            if operation == "create_intent_mandate":
+            if operation == "process_real_payment":
+                return await self._process_real_payment(**kwargs)
+            elif operation == "create_intent_mandate":
                 return await self._create_intent_mandate(**kwargs)
             elif operation == "create_cart_mandate":
                 return await self._create_cart_mandate(**kwargs)
@@ -86,15 +115,48 @@ class AP2ProtocolTool:
                 return await self._create_payment_mandate(**kwargs)
             elif operation == "verify_mandate":
                 return await self._verify_mandate(**kwargs)
+            elif operation == "get_transaction_status":
+                return await self._get_transaction_status(**kwargs)
+            elif operation == "get_payment_methods":
+                return await self._get_payment_methods(**kwargs)
             else:
                 return {"error": f"Unknown operation: {operation}"}
                 
         except Exception as e:
             return {"error": f"AP2 operation failed: {str(e)}"}
     
+    async def _process_real_payment(
+        self, 
+        user_message: str, 
+        user_id: str, 
+        merchant_id: str,
+        payment_method: str = "auto",
+        payment_data: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Process real payment through AP2 protocol with actual payment gateways."""
+        
+        return await self.ap2_integration.process_whatsapp_message(
+            user_message=user_message,
+            user_id=user_id,
+            merchant_id=merchant_id,
+            payment_method=payment_method,
+            payment_data=payment_data
+        )
+    
+    async def _get_transaction_status(self, transaction_id: str, **kwargs) -> Dict[str, Any]:
+        """Get current transaction status."""
+        
+        return await self.ap2_integration.get_transaction_status(transaction_id)
+    
+    async def _get_payment_methods(self, user_id: str, **kwargs) -> Dict[str, Any]:
+        """Get available payment methods for user."""
+        
+        return await self.ap2_integration.get_available_payment_methods(user_id)
+    
     async def _create_intent_mandate(self, user_message: str, user_id: str, **kwargs) -> Dict[str, Any]:
         """Create an Intent Mandate from user's message."""
-        intent_mandate = self.payment_agent.create_intent_mandate(
+        intent_mandate = self.ap2_integration.ap2_agent.create_intent_mandate(
             user_message=user_message,
             user_id=user_id,
             merchants=kwargs.get("merchants"),
@@ -102,7 +164,7 @@ class AP2ProtocolTool:
             requires_confirmation=kwargs.get("requires_confirmation", True)
         )
         
-        intent_id = list(self.payment_agent.active_intents.keys())[-1]
+        intent_id = list(self.ap2_integration.ap2_agent.active_intents.keys())[-1]
         
         return {
             "success": True,
@@ -130,7 +192,7 @@ class AP2ProtocolTool:
                 )
             ))
         
-        cart_mandate = self.payment_agent.create_cart_mandate(
+        cart_mandate = self.ap2_integration.ap2_agent.create_cart_mandate(
             intent_id=intent_id,
             items=payment_items,
             shipping_address=kwargs.get("shipping_address")
@@ -161,7 +223,7 @@ class AP2ProtocolTool:
             details=kwargs.get("payment_details", {"card_number": "****1234"})
         )
         
-        payment_mandate = self.payment_agent.create_payment_mandate(
+        payment_mandate = self.ap2_integration.ap2_agent.create_payment_mandate(
             cart_id=cart_id,
             payment_response=payment_response,
             user_id=user_id

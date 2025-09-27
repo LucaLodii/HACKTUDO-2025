@@ -17,6 +17,10 @@ dependencies = [
     "uvicorn>=0.37.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
+    "aiosqlite>=0.20.0",
+    "google-cloud-iam>=2.15.0",
+    "google-auth>=2.35.0",
+    "google-generativeai>=0.8.0",
 ]
 
 [tool.uv.sources]

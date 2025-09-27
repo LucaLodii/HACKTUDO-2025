@@ -6,10 +6,21 @@ from .tools import (
     bemobi_tool,
 )
 
+# Import enterprise tools if available
+try:
+    from .tools.enterprise import auth_tool, registry_tool, credentials_tool, disputes_tool
+    enterprise_tools = [auth_tool, registry_tool, credentials_tool, disputes_tool]
+    enterprise_tools = [tool for tool in enterprise_tools if tool is not None]
+except ImportError:
+    enterprise_tools = []
+
 # Build tools list dynamically based on available tools
 tools_list = [ap2_protocol_tool, whatsapp_tool]
 if bemobi_tool is not None:
     tools_list.append(bemobi_tool)
+
+# Add enterprise tools if available
+tools_list.extend(enterprise_tools)
 
 root_agent = Agent(
     model='gemini-2.5-flash',

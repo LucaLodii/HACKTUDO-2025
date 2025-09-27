@@ -10,6 +10,20 @@ from datetime import datetime
 _user_sessions = {}
 _mock_payment_processor = {}
 
+# Shared AP2 agent instance for consistent state across requests
+_ap2_agent = None
+
+def _get_ap2_agent():
+    """Get or create shared AP2 agent instance"""
+    global _ap2_agent
+    if _ap2_agent is None:
+        from sofIA.tools.ap2_protocol.ap2_core import AP2PaymentAgent
+        _ap2_agent = AP2PaymentAgent(
+            agent_id="sofia_orchestrator",
+            merchant_id="demo_merchant"
+        )
+    return _ap2_agent
+
 
 def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[str, Any]:
     """Process user message and coordinate A2A communication"""
@@ -55,196 +69,242 @@ def _handle_agent_intent(agent_reply: str, message: str, user_id: str, session: 
         return _create_payment_intent(message, user_id, session)
 
     # Check if agent detected payment confirmation
-    elif "[PAYMENT_CONFIRM]" in agent_reply and session["payment_state"] == "intent_created":
-        print("✅ Agent detected payment confirmation - coordinating payment processing!")
+    elif "[PAYMENT_CONFIRM]" in agent_reply and session["payment_state"] == "cart_created":
+        print("✅ Agent detected payment confirmation - sofIA executing payment!")
         return _process_payment(user_id, session)
     
     return None
 
 
 def _create_payment_intent(message: str, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
-    """Create payment intent via true A2A coordination with sofIA agent"""
+    """Create AP2 Intent Mandate and prepare Cart for user confirmation"""
 
-    # Extract product info
+    # Extract product info using AI
     product_info = _extract_product_info(message)
 
-    # TRUE A2A: Call sofIA agent to handle payment processing
-    try:
-        # Import sofIA agent for A2A communication
-        from sofIA.agent import root_agent
-
-        # Create A2A request context for sofIA agent
-        a2a_context = f"""
-Agent-to-Agent Request from Orchestrator:
-
-User wants to purchase: {message}
-User ID: {user_id}
-Product: {product_info['name']}
-Price: {product_info['currency']} {product_info['price']:.2f}
-
-Please create an AP2 Intent Mandate for this purchase request and return the intent ID.
-Use your AP2 protocol tools to process this payment intent.
-"""
-
-        # Call sofIA agent via A2A
-        sofia_response = root_agent.run(a2a_context)
-        sofia_reply = sofia_response.text if hasattr(sofia_response, 'text') else str(sofia_response)
-
-        print(f"🤖 A2A Response from sofIA agent: {sofia_reply}")
-
-        # Parse sofIA agent response (in real implementation, use structured response)
-        # For now, create the session updates based on successful A2A call
-        session_updates = {
-            "payment_state": "intent_created",
-            "current_intent": f"a2a_intent_{datetime.now().timestamp()}",
-            "product_info": product_info,
-            "sofia_response": sofia_reply
+    # Check if amount is required but not provided
+    if product_info.get('requires_amount') and product_info.get('price', 0) == 0:
+        return {
+            "reply": f"Para fazer a {product_info['name']}, preciso saber o valor. Qual o valor que você gostaria de transferir?",
+            "session_updates": {
+                "payment_state": "awaiting_amount",
+                "product_info": product_info
+            }
         }
 
-        reply = f"""Perfect! I coordinated with sofIA agent for your purchase:
+    # AP2 Protocol Step 1: Create Intent Mandate
+    try:
+        from sofIA.tools.ap2_protocol.ap2_core import AP2PaymentAgent
+        from ap2.types.payment_request import PaymentItem, PaymentCurrencyAmount
 
-🛍️ **{product_info['name']}**
+        print(f"🤖 sofIA Agent creating Intent Mandate for: {product_info['name']}")
+
+        # Get shared AP2 agent for processing
+        ap2_agent = _get_ap2_agent()
+
+        # Step 1: Create Intent Mandate (captures user's intent)
+        intent_result = ap2_agent.create_intent_mandate(
+            user_message=message,
+            user_id=user_id,
+            merchants=["sofIA Payment Agent"],
+            max_price=product_info['price'],
+            requires_confirmation=True  # User must confirm cart
+        )
+
+        if not intent_result:
+            raise Exception("Failed to create Intent Mandate")
+
+        intent_id = next(iter(ap2_agent.active_intents.keys()), "unknown")
+        print(f"✅ Intent Mandate created: {intent_id}")
+
+        # Step 2: Agent creates Cart Mandate with specific items (per AP2 protocol)
+        payment_item = PaymentItem(
+            label=product_info['name'],
+            amount=PaymentCurrencyAmount(
+                value=product_info['price'],
+                currency=product_info['currency']
+            )
+        )
+
+        cart_result = ap2_agent.create_cart_mandate(
+            intent_id=intent_id,
+            items=[payment_item]
+        )
+
+        if not cart_result:
+            raise Exception("Failed to create Cart Mandate")
+
+        cart_id = next(iter(ap2_agent.active_carts.keys()), "unknown")
+        print(f"✅ Cart Mandate created: {cart_id}")
+
+        # Present cart to user for confirmation (AP2 protocol requirement)
+        reply = f"""🛒 **Carrinho preparado pela sofIA**
+
+**{product_info['name']}**
 💰 {product_info['currency']} {product_info['price']:.2f}
 
-✅ sofIA Agent Response: {sofia_reply[:200]}...
+🔐 Intent ID: `{intent_id}`
+📋 Cart ID: `{cart_id}`
 
-Your secure payment is ready via AP2 protocol through A2A coordination.
+Este carrinho foi criado com base na sua solicitação. A sofIA pode processar o pagamento automaticamente após sua confirmação.
 
-Would you like to confirm this purchase? (Reply 'yes' or 'no')"""
+**Confirmar compra?** (Responda 'sim' ou 'não')"""
 
         return {
             "reply": reply,
-            "session_updates": session_updates
+            "session_updates": {
+                "payment_state": "cart_created",
+                "intent_id": intent_id,
+                "cart_id": cart_id,
+                "product_info": product_info
+            }
         }
 
     except Exception as e:
-        print(f"A2A coordination with sofIA agent failed: {e}")
+        print(f"AP2 Intent/Cart creation failed: {e}")
         return {
-            "reply": "Sorry, I had trouble coordinating with the payment agent. Let me try again.",
+            "reply": f"Desculpe, houve um problema ao preparar o pagamento para {product_info['name']}. Tente novamente.",
             "session_updates": {"payment_state": "idle"}
         }
 
 
 def _process_payment(user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
-    """Process payment via true A2A coordination with sofIA agent"""
+    """Complete payment after user confirmation (AP2 Protocol Step 3)"""
 
     try:
         product_info = session["product_info"]
-        intent_id = session["current_intent"]
+        cart_id = session["cart_id"]
 
-        # TRUE A2A: Call sofIA agent to complete payment processing
-        from sofIA.agent import root_agent
+        # AP2 Protocol Step 3: Agent executes payment after user confirmation
+        from ap2.types.payment_request import PaymentResponse
 
-        # Create A2A request for payment completion
-        a2a_payment_context = f"""
-Agent-to-Agent Payment Request from Orchestrator:
+        print("🤖 sofIA Agent executing payment after user confirmation")
 
-Complete payment processing for:
-User ID: {user_id}
-Intent ID: {intent_id}
-Product: {product_info['name']}
-Amount: {product_info['currency']} {product_info['price']:.2f}
+        # Get shared AP2 agent for payment processing
+        ap2_agent = _get_ap2_agent()
 
-Please process this payment using your AP2 protocol tools and create the final Payment Mandate.
-Return the transaction details.
-"""
+        # Create payment response (agent handles payment execution)
+        payment_response = PaymentResponse(
+            request_id=f"req-{cart_id}",
+            method_name="sofIA_agent_payment"
+        )
 
-        # Call sofIA agent for payment completion
-        sofia_payment_response = root_agent.run(a2a_payment_context)
-        sofia_payment_reply = sofia_payment_response.text if hasattr(sofia_payment_response, 'text') else str(sofia_payment_response)
+        # Step 3: Create Payment Mandate (agent executes the payment)
+        payment_result = ap2_agent.create_payment_mandate(
+            cart_id=cart_id,
+            payment_response=payment_response,
+            user_id=user_id
+        )
 
-        print(f"🤖 A2A Payment Response from sofIA agent: {sofia_payment_reply}")
+        if not payment_result:
+            raise Exception("Payment Mandate creation failed")
 
-        # Generate transaction ID for demo
-        transaction_id = f"a2a_txn_{datetime.now().timestamp()}"
+        # Generate transaction ID
+        transaction_id = f"sofia_txn_{datetime.now().timestamp()}"
 
-        session_updates = {
-            "payment_state": "completed",
-            "transaction_id": transaction_id,
-            "sofia_payment_response": sofia_payment_reply
-        }
+        print(f"✅ Payment executed successfully by sofIA Agent")
 
-        reply = f"""✅ **Payment Successful via A2A Coordination!**
+        # Success response - payment completed by agent
+        reply = f"""✅ **Pagamento concluído com sucesso!**
 
-Transaction ID: `{transaction_id}`
-Amount: {product_info['currency']} {product_info['price']:.2f}
-Status: Completed
+**{product_info['name']}**
+💰 {product_info['currency']} {product_info['price']:.2f}
 
-🤖 sofIA Agent Processing: {sofia_payment_reply[:150]}...
+🔐 Transaction ID: `{transaction_id}`
+🤖 Executado pela sofIA via protocolo AP2
+📱 Status: Concluído
 
-🔐 Secured by AP2 Protocol
-🤝 Processed via Agent-to-Agent Communication
-
-Thank you for using sofIA! Is there anything else I can help you with?"""
+Obrigada por usar a sofIA! Posso ajudar com mais alguma coisa?"""
 
         return {
             "reply": reply,
-            "session_updates": session_updates
+            "session_updates": {
+                "payment_state": "completed",
+                "transaction_id": transaction_id
+            }
         }
 
     except Exception as e:
-        print(f"A2A payment coordination error: {e}")
+        print(f"Payment execution failed: {e}")
         return {
-            "reply": "❌ Sorry, there was an error coordinating payment with sofIA agent. Please try again.",
-            "session_updates": {}
+            "reply": "❌ Houve um erro ao processar o pagamento. Tente novamente.",
+            "session_updates": {"payment_state": "idle"}
         }
 
 
 def _extract_product_info(message: str) -> Dict[str, Any]:
-    """Extract product information from message"""
-    products = {
-        "coffee": {"name": "Premium Coffee", "price": 15.50, "currency": "BRL"},
-        "café": {"name": "Café Premium", "price": 15.50, "currency": "BRL"},
-        "lunch": {"name": "Lunch Combo", "price": 25.00, "currency": "BRL"},
-        "almoço": {"name": "Combo Almoço", "price": 25.00, "currency": "BRL"},
-        "phone": {"name": "Smartphone", "price": 899.99, "currency": "BRL"},
-        "celular": {"name": "Smartphone", "price": 899.99, "currency": "BRL"},
-    }
+    """Extract product information from message using AI"""
+    try:
+        import google.generativeai as genai
+        import os
 
+        # Configure Gemini
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        model = genai.GenerativeModel('gemini-2.5-flash')
+
+        # Create prompt for product extraction
+        extraction_prompt = f"""Analyze this user message and extract what they want to buy/pay for.
+
+User message: "{message}"
+
+Based on the message, determine:
+1. What product/service they want
+2. Appropriate price in BRL
+3. Product name
+
+Common examples:
+- "enviar um pix" = Transfer money via PIX (amount should be asked)
+- "comprar café" = Coffee (~R$ 8-15)
+- "pagar almoço" = Lunch (~R$ 25-35)
+- "comprar celular" = Phone (~R$ 800-2000)
+- "pagar conta" = Bill payment (amount varies)
+
+Respond in this exact JSON format:
+{{"name": "Product Name", "price": 0.00, "currency": "BRL", "requires_amount": true/false}}
+
+If they didn't specify an amount and it's needed (like PIX transfer), set requires_amount to true and price to 0.00."""
+
+        # Get response from Gemini
+        response = model.generate_content(extraction_prompt)
+
+        if response.text:
+            import json
+            # Try to parse JSON response
+            try:
+                # Clean the response to extract JSON
+                response_text = response.text.strip()
+                if "```json" in response_text:
+                    response_text = response_text.split("```json")[1].split("```")[0].strip()
+                elif "```" in response_text:
+                    response_text = response_text.split("```")[1].strip()
+
+                product_info = json.loads(response_text)
+
+                # Ensure required fields
+                if not all(key in product_info for key in ["name", "price", "currency"]):
+                    raise ValueError("Missing required fields")
+
+                return product_info
+
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Failed to parse AI response: {e}")
+                print(f"AI response was: {response.text}")
+
+    except Exception as e:
+        print(f"AI product extraction failed: {e}")
+
+    # Fallback for common patterns
     message_lower = message.lower()
-    for keyword, product in products.items():
-        if keyword in message_lower:
-            return product
+    if "pix" in message_lower:
+        return {"name": "Transferência PIX", "price": 0.00, "currency": "BRL", "requires_amount": True}
+    elif any(word in message_lower for word in ["café", "coffee"]):
+        return {"name": "Café", "price": 12.00, "currency": "BRL", "requires_amount": False}
+    elif any(word in message_lower for word in ["almoço", "lunch"]):
+        return {"name": "Almoço", "price": 28.00, "currency": "BRL", "requires_amount": False}
 
-    return {"name": "General Item", "price": 20.00, "currency": "BRL"}
-
-
-def _create_mock_payment_intent(amount: float, currency: str, description: str) -> Dict[str, Any]:
-    """Create mock payment intent"""
-    intent_id = f"bemobi_{datetime.now().timestamp()}"
-
-    _mock_payment_processor[intent_id] = {
-        "id": intent_id,
-        "amount": amount,
-        "currency": currency,
-        "description": description,
-        "status": "pending"
-    }
-
-    return {
-        "success": True,
-        "payment_intent_id": intent_id,
-        "amount": amount,
-        "currency": currency
-    }
+    return {"name": "Serviço", "price": 0.00, "currency": "BRL", "requires_amount": True}
 
 
-def _process_mock_payment(payment_intent_id: str, payment_method: str) -> Dict[str, Any]:
-    """Process mock payment"""
-    if payment_intent_id not in _mock_payment_processor:
-        return {"success": False, "error": "Payment intent not found"}
-
-    transaction = _mock_payment_processor[payment_intent_id]
-    transaction["status"] = "completed"
-    transaction["payment_method"] = payment_method
-
-    return {
-        "success": True,
-        "transaction_id": f"txn_{payment_intent_id}",
-        "status": "completed",
-        "amount": transaction["amount"],
-        "currency": transaction["currency"]
-    }
 
 
 def get_user_session(user_id: str) -> Dict[str, Any]:
