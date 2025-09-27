@@ -1,0 +1,197 @@
+# Subscription Management & Renewal Orchestration
+
+## Core Business Model
+sofIA now handles comprehensive subscription lifecycle management for BEMOBI's telecom clients (VIVO, CLARO, OI, TIM), combining AI conversation management with AP2 payment processing.
+
+## Data Architecture
+
+### Supabase Integration Patterns
+```python
+# Environment Configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# Client Initialization
+from supabase import create_client, Client
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+```
+
+### Database Schema Standards
+- **operators**: Telecom operators (VIVO, CLARO, OI, TIM)
+- **subscription_plans**: Available plans per operator
+- **users**: End customers with WhatsApp numbers
+- **user_subscriptions**: Active subscriptions with status tracking
+- **subscription_payments**: Payment history with AP2 references
+- **renewal_reminders**: Proactive reminder tracking
+
+## Agent Capabilities
+
+### Subscription Discovery Agent
+**Purpose**: Fetch and present user's current subscriptions
+**Tools**:
+- `get_user_subscriptions()` - Retrieve all active subscriptions
+- `get_subscription_details()` - Get detailed plan information
+- `check_subscription_status()` - Verify current status
+
+### Renewal Orchestration Agent
+**Purpose**: Proactive renewal management and payment processing
+**Tools**:
+- `check_expiring_subscriptions()` - Monitor upcoming expirations
+- `send_renewal_reminder()` - Send targeted WhatsApp reminders
+- `process_renewal_payment()` - Handle AP2 payment for renewals
+
+### Plan Management Agent
+**Purpose**: Handle plan changes and upgrades
+**Tools**:
+- `get_available_plans()` - Show upgrade/downgrade options
+- `calculate_plan_change_cost()` - Compute price differences
+- `process_plan_change()` - Execute plan migration with payment
+
+## Integration Patterns
+
+### Supabase Query Patterns
+```python
+# Fetch user subscriptions
+subscriptions = supabase.table("user_subscriptions")\
+    .select("*, subscription_plans(*), operators(*)")\
+    .eq("user_id", user_id)\
+    .eq("status", "active")\
+    .execute()
+
+# Check expiring subscriptions
+expiring = supabase.table("user_subscriptions")\
+    .select("*, users(whatsapp_number), subscription_plans(name, price_cents)")\
+    .gte("end_date", datetime.now())\
+    .lte("end_date", datetime.now() + timedelta(days=days_ahead))\
+    .eq("status", "active")\
+    .execute()
+```
+
+### AP2 Integration for Subscriptions
+```python
+# Create subscription mandate
+mandate_data = {
+    "user_info": user_profile,
+    "subscription_info": plan_details,
+    "operator": operator_name,
+    "amount": plan_price_cents
+}
+
+# Process subscription payment
+payment_result = await ap2_payment_tool.execute(
+    operation="create_mandate_and_pay",
+    mandate_data=mandate_data,
+    transaction_type="subscription_renewal"
+)
+```
+
+## Conversation Flow Standards
+
+### Proactive Renewal Pattern
+1. **Monitor**: Check for subscriptions expiring in 7/3/1 days
+2. **Remind**: Send personalized WhatsApp reminder
+3. **Engage**: Handle user response (renew/change/cancel)
+4. **Process**: Execute AP2 payment if confirmed
+5. **Confirm**: Send success confirmation with new expiry
+
+### Plan Change Pattern
+1. **Discover**: Show current plan details
+2. **Present**: Display available upgrade/downgrade options
+3. **Calculate**: Show price difference and new billing
+4. **Confirm**: Get user approval for change
+5. **Execute**: Process plan change with AP2 payment
+6. **Update**: Confirm new plan activation
+
+### Multi-Subscription Management
+1. **Overview**: Present all active subscriptions
+2. **Prioritize**: Highlight expiring or actionable items
+3. **Batch Process**: Handle multiple operations efficiently
+4. **Track**: Maintain conversation context across operations
+
+## Error Handling Standards
+
+### Payment Failures
+```python
+try:
+    payment_result = await process_subscription_payment(subscription_id, amount)
+    if not payment_result.get("success"):
+        await send_payment_failure_message(user_id, payment_result.get("error"))
+        await schedule_retry_reminder(subscription_id, delay_hours=24)
+except Exception as e:
+    logger.error(f"Subscription payment failed: {e}")
+    await escalate_to_support(subscription_id, str(e))
+```
+
+### Data Consistency
+- Always verify subscription status before processing
+- Handle concurrent updates gracefully
+- Maintain audit trail for all subscription changes
+- Implement optimistic locking for plan changes
+
+## Performance Standards
+
+### Response Time Targets
+- Subscription queries: < 1 second
+- Plan comparisons: < 2 seconds
+- Payment processing: < 5 seconds
+- Renewal reminders: < 10 seconds batch processing
+
+### Caching Strategy
+- Cache subscription plans for 1 hour
+- Cache user subscriptions for 5 minutes
+- Cache operator information for 24 hours
+- Invalidate cache on subscription changes
+
+## Security Standards
+
+### Data Protection
+- Encrypt payment information at rest
+- Use secure connection to Supabase
+- Implement row-level security (RLS)
+- Audit all subscription modifications
+
+### PII Handling
+- Store minimal user information
+- Use WhatsApp number as primary identifier
+- Comply with LGPD requirements
+- Implement data retention policies
+
+## Testing Requirements
+
+### Unit Tests
+- Test all Supabase CRUD operations
+- Mock external API calls
+- Verify AP2 payment integration
+- Test error handling scenarios
+
+### Integration Tests
+- End-to-end subscription flows
+- Multi-agent coordination
+- WhatsApp message handling
+- Payment processing workflows
+
+### Performance Tests
+- Load testing for 1000+ concurrent users
+- Database query optimization
+- Cache effectiveness validation
+- Memory usage monitoring
+
+## Monitoring & Alerting
+
+### Business Metrics
+- Subscription renewal rate
+- Plan upgrade/downgrade ratio
+- Payment success rate
+- Customer satisfaction scores
+
+### Technical Metrics
+- Database query performance
+- API response times
+- Error rates and types
+- Cache hit ratios
+
+### Alerts
+- Payment failures > 5%
+- Database connection issues
+- High response times > 5 seconds
+- Subscription sync failures

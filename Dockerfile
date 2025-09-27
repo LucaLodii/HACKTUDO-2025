@@ -14,6 +14,7 @@ RUN pip install uv
 # Copy project files
 COPY pyproject.toml uv.lock ./
 COPY sofIA/ ./sofIA/
+COPY orchestrator/ ./orchestrator/
 COPY app.py ./
 COPY env.example ./
 

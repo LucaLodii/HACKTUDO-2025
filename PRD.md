@@ -7,46 +7,52 @@
 **Hackathon Project:** HACKTUDO 2025  
 **Protocol Compliance:** [AP2 (Agent Payments Protocol)](https://github.com/google-agentic-commerce/AP2)  
 **Delivery Channel:** WhatsApp Business Integration  
+**Core Business Model:** Subscription Management & Renewal Orchestration
 
-sofIA is a revolutionary multi-agent payment orchestration system that enables BEMOBI's clients to complete entire purchase flows exclusively through WhatsApp conversations. The system implements Google's AP2 Protocol for secure, cryptographically-verified agent-to-agent communication, ensuring regulatory compliance and fraud prevention.
+sofIA is a revolutionary multi-agent subscription management and payment orchestration system that enables BEMOBI's telecom clients (VIVO, CLARO, OI, TIM) to handle complete subscription lifecycles through WhatsApp conversations. The system implements Google's AP2 Protocol for secure, cryptographically-verified agent-to-agent communication, combining intelligent subscription management with automated renewal processing and plan migration capabilities.
 
 ---
 
 ## 1. Product Intent & Vision
 
 ### 1.1 Problem Statement
-BEMOBI's clients (merchants across LATAM, Africa, and Asia) face significant challenges in mobile commerce:
-- **Fragmented Payment Experiences**: Users must navigate multiple apps/websites
-- **High Abandonment Rates**: Complex checkout processes lead to 70%+ cart abandonment
-- **Limited WhatsApp Integration**: Current solutions lack proper payment protocol compliance
-- **Regulatory Compliance**: Need for auditable, secure payment flows in emerging markets
-- **Agent-to-Agent Coordination**: No standardized protocol for AI agent payment interactions
+BEMOBI's telecom clients (VIVO, CLARO, OI, TIM) face significant challenges in subscription management:
+- **High Involuntary Churn**: 30-40% of customers forget to renew subscriptions
+- **Manual Plan Management**: Complex processes for plan upgrades/downgrades
+- **Fragmented Customer Experience**: Multiple touchpoints for subscription operations
+- **Limited Proactive Engagement**: No intelligent reminder systems
+- **Payment Processing Delays**: Slow and unreliable renewal payment flows
+- **Regulatory Compliance**: Need for auditable, secure payment flows with AP2 protocol
 
 ### 1.2 Solution Vision
-sofIA creates a **"Conversational Commerce Revolution"** where:
-- Customers complete entire purchase journeys through natural WhatsApp conversations
-- Multiple AI agents orchestrate complex payment flows with cryptographic security
-- AP2 Protocol ensures regulatory compliance and fraud prevention
-- BEMOBI becomes the go-to platform for WhatsApp-based commerce in emerging markets
+sofIA creates a **"Subscription Lifecycle Revolution"** where:
+- Customers manage entire subscription lifecycles through natural WhatsApp conversations
+- AI agents proactively remind users of expiring subscriptions and handle renewals
+- Intelligent plan management enables seamless upgrades/downgrades with AP2 payments
+- Multiple AI agents orchestrate complex subscription flows with cryptographic security
+- AP2 Protocol ensures regulatory compliance and fraud prevention for all subscription operations
+- BEMOBI becomes the leading subscription management platform for telecom operators
 
 ### 1.3 Value Proposition
 **For BEMOBI:**
-- New revenue stream through WhatsApp commerce platform
-- Competitive differentiation in emerging markets
-- Reduced support costs through automated agent interactions
-- Enhanced merchant acquisition through superior UX
+- New revenue stream through subscription management platform
+- Competitive differentiation in telecom subscription services
+- Reduced support costs through automated renewal and plan management
+- Enhanced client acquisition through superior subscription UX
 
-**For BEMOBI's Merchants:**
-- 90%+ reduction in checkout abandonment
+**For BEMOBI's Telecom Clients (VIVO, CLARO, OI, TIM):**
+- 90%+ reduction in involuntary churn through proactive renewals
+- Seamless plan migration with immediate AP2 payment processing
 - Native WhatsApp integration without technical complexity
-- AP2-compliant security and audit trails
-- Automated customer service through AI agents
+- AP2-compliant security and audit trails for all subscription operations
+- Automated customer retention through AI agents
 
 **For End Customers:**
-- Seamless purchase experience within WhatsApp
-- No app downloads or website navigation required
-- Secure, verifiable payment transactions
-- Natural language interaction with AI agents
+- Never miss subscription renewals with intelligent WhatsApp reminders
+- Easy plan upgrades/downgrades through natural conversation
+- Instant payment processing with AP2 protocol security
+- Complete subscription overview and management in one place
+- No app downloads or complex interfaces required
 
 ---
 
@@ -57,35 +63,48 @@ sofIA creates a **"Conversational Commerce Revolution"** where:
 #### 2.1.1 Core Multi-Agent Architecture
 - **Orchestrator Agent**: Manages conversation flow and coordinates other agents
 - **sofIA Payment Agent**: Handles AP2 protocol compliance and payment processing
-- **BEMOBI Integration Agent**: Manages merchant-specific payment gateway operations
+- **Subscription Management Agent**: Handles subscription discovery, renewals, and plan changes
+- **Renewal Orchestration Agent**: Proactive monitoring and reminder system for expiring subscriptions
+- **Plan Management Agent**: Manages plan upgrades, downgrades, and cost calculations
+- **BEMOBI Integration Agent**: Manages telecom operator payment gateway operations
 - **WhatsApp Interface Agent**: Handles WhatsApp Web.js bridge communication
 
 #### 2.1.2 AP2 Protocol Compliance
-- **Intent Mandate Creation**: Capture user purchase intent with natural language
-- **Cart Mandate Generation**: Create cryptographically signed payment carts
-- **Payment Mandate Processing**: Execute payments with full audit trails
-- **Mandate Verification**: Verify all signatures and authorizations
-- **Expiry Management**: Handle time-limited mandates for security
+- **Subscription Intent Mandates**: Capture user subscription renewal/change intent with natural language
+- **Subscription Cart Mandates**: Create cryptographically signed subscription payment carts
+- **Subscription Payment Mandates**: Execute subscription payments with full audit trails
+- **Mandate Verification**: Verify all signatures and authorizations for subscription operations
+- **Expiry Management**: Handle time-limited mandates for security in renewal flows
 
 #### 2.1.3 WhatsApp Integration
-- **Natural Language Processing**: Understand purchase intents in multiple languages
-- **Conversation Management**: Maintain context across multi-turn conversations
-- **Rich Media Support**: Handle images, documents, and product catalogs
-- **Real-time Messaging**: Instant response and status updates
-- **Session Persistence**: Maintain user context across conversations
+- **Natural Language Processing**: Understand subscription management intents in multiple languages
+- **Conversation Management**: Maintain context across multi-turn subscription conversations
+- **Rich Media Support**: Handle subscription plan images, documents, and catalogs
+- **Proactive Messaging**: Send intelligent renewal reminders and plan suggestions
+- **Real-time Messaging**: Instant response and subscription status updates
+- **Session Persistence**: Maintain user subscription context across conversations
 
-#### 2.1.4 BEMOBI Payment Gateway Integration
-- **Multi-Merchant Support**: Handle multiple BEMOBI clients simultaneously
-- **Regional Compliance**: Support LATAM, Africa, and Asia payment methods
-- **Currency Support**: Handle BRL, NGN, THB, and other regional currencies
-- **Payment Method Variety**: Support cards, PIX, Boleto, bank transfers
-- **Webhook Integration**: Real-time payment status updates
+#### 2.1.4 BEMOBI Telecom Integration
+- **Multi-Operator Support**: Handle multiple telecom operators (VIVO, CLARO, OI, TIM) simultaneously
+- **Subscription Plan Management**: Sync and manage subscription plans per operator
+- **Regional Compliance**: Support Brazilian telecom regulations and payment methods
+- **Currency Support**: Handle BRL for Brazilian telecom market
+- **Payment Method Variety**: Support PIX, cards, Boleto for subscription payments
+- **Webhook Integration**: Real-time subscription and payment status updates
 
-#### 2.1.5 Agent-to-Agent Communication (A2A)
-- **Structured A2A Messages**: Standardized communication between agents
-- **Context Preservation**: Maintain transaction context across agent interactions
-- **Error Handling**: Graceful failure recovery and retry mechanisms
-- **Audit Logging**: Complete trail of all A2A communications
+#### 2.1.5 Subscription Management Capabilities
+- **Subscription Discovery**: Fetch and display user's active subscriptions across operators
+- **Renewal Monitoring**: Proactive monitoring of subscription expiration dates
+- **Intelligent Reminders**: Send personalized renewal reminders via WhatsApp
+- **Plan Comparison**: Present upgrade/downgrade options with cost calculations
+- **Seamless Migration**: Execute plan changes with immediate AP2 payment processing
+- **Multi-Subscription Management**: Handle multiple active subscriptions per user
+
+#### 2.1.6 Agent-to-Agent Communication (A2A)
+- **Structured A2A Messages**: Standardized communication between subscription management agents
+- **Context Preservation**: Maintain subscription and user context across agent interactions
+- **Error Handling**: Graceful failure recovery and retry mechanisms for subscription operations
+- **Audit Logging**: Complete trail of all A2A communications and subscription changes
 
 ### 2.2 Non-Functional Requirements
 
