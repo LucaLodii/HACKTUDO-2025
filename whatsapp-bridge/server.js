@@ -222,7 +222,7 @@ class SofiaWhatsAppBridge {
                 timestamp: messageData.timestamp,
                 message_id: messageData.id
             }, {
-                timeout: 10000 // 10 second timeout
+                timeout: 100000 // 100 second timeout
             });
 
             if (response.data && response.data.reply) {
