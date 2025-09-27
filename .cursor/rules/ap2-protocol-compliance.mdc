@@ -1,0 +1,52 @@
+---
+globs: **/ap2_protocol/**,**/tools/ap2_*
+description: AP2 Protocol compliance and implementation guidelines
+---
+
+# AP2 Protocol Compliance Guidelines
+
+## Core Requirements
+All AP2 Protocol implementations must follow Google's Agent Payments Protocol specification from [AP2 Repository](https://github.com/google-agentic-commerce/AP2).
+
+### Mandate Types Implementation
+1. **Intent Mandate**: [sofIA/tools/ap2_protocol/ap2_core.py](mdc:sofIA/tools/ap2_protocol/ap2_core.py)
+   - Capture user purchase intent with natural language authorization
+   - Include user_id, natural_language_description, intent_expiry
+   - Require user_cart_confirmation_required flag
+
+2. **Cart Mandate**: 
+   - Cryptographically signed merchant cart with guaranteed pricing
+   - Include payment_request, merchant_name, cart_expiry
+   - Generate merchant_authorization signature
+
+3. **Payment Mandate**:
+   - User-authorized payment with complete audit trail
+   - Include payment_mandate_id, merchant_agent, payment_response
+   - Generate user_authorization signature
+
+### Security Requirements
+- **RSA-2048 Digital Signatures**: All mandates must be cryptographically signed
+- **JWT Tokens**: Time-limited authorization tokens (15-minute cart expiry)
+- **Verifiable Credentials**: Non-repudiable user authorization
+- **Audit Trails**: Complete transaction history with timestamps
+
+### AP2 Tool Implementation
+Reference [sofIA/tools/ap2_protocol/ap2_tool.py](mdc:sofIA/tools/ap2_protocol/ap2_tool.py) for:
+- `create_intent_mandate()` - Convert user messages to Intent Mandates
+- `create_cart_mandate()` - Generate Cart Mandates from payment items
+- `create_payment_mandate()` - Process final payment authorization
+- `verify_mandate()` - Verify mandate signatures and validity
+
+### Agent-to-Agent Communication
+- Use structured JSON-based A2A message format
+- Preserve transaction context across agent interactions
+- Implement graceful failure recovery and retry logic
+- Maintain complete A2A communication audit trail
+
+### Compliance Checklist
+- [ ] All mandates include proper cryptographic signatures
+- [ ] Mandate expiry times are enforced (15 minutes for carts)
+- [ ] User authorization is captured for each mandate
+- [ ] Complete audit trail is maintained
+- [ ] AP2 specification compliance is verified
+- [ ] Error handling follows AP2 error patterns

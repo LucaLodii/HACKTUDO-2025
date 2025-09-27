@@ -1,0 +1,133 @@
+---
+globs: *.py,**/*.py
+description: Python development standards and code quality guidelines
+---
+
+# sofIA Development Standards
+
+## Code Quality & Standards
+
+### Technology Stack
+- **Language**: Python 3.12+
+- **Framework**: FastAPI for REST API
+- **Agent Framework**: Google ADK (Agent Development Kit)
+- **AI Model**: Gemini 2.5 Flash
+- **Package Manager**: uv for dependency management
+
+### Code Style & Formatting
+- Use **Black** for code formatting
+- Use **flake8** for linting
+- Use **mypy** for type checking
+- Follow PEP 8 style guidelines
+- Use type hints for all function parameters and return values
+
+### Project Structure Patterns
+```python
+# Agent Definition Pattern
+from google.adk.agents import Agent
+from .prompt import AGENT_PROMPT
+from .tools import tool1, tool2, tool3
+
+agent = Agent(
+    model='gemini-2.5-flash',
+    name='agent-name',
+    description='Agent description',
+    instruction=AGENT_PROMPT,
+    tools=[tool1, tool2, tool3],
+)
+```
+
+### Tool Implementation Pattern
+```python
+class ToolName:
+    def __init__(self):
+        self.name = "tool_name"
+        self.description = "Tool description"
+        self.parameters = {
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["op1", "op2", "op3"],
+                    "description": "Operation description"
+                }
+            },
+            "required": ["operation"]
+        }
+    
+    async def execute(self, **kwargs) -> Dict[str, Any]:
+        operation = kwargs.get("operation")
+        # Handle operations with proper error handling
+        # Return structured responses
+```
+
+### Error Handling Standards
+```python
+try:
+    # Operation that might fail
+    result = await some_operation()
+    return {"success": True, "data": result}
+except SpecificException as e:
+    return {"success": False, "error": f"Specific error: {str(e)}"}
+except Exception as e:
+    return {"success": False, "error": f"Operation failed: {str(e)}"}
+```
+
+### Logging Standards
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Use structured logging
+logger.info(f"Processing message: '{message}' from user: {user_id}")
+logger.error(f"Operation failed: {error}")
+logger.debug(f"A2A Response from agent: {response}")
+```
+
+### Testing Requirements
+- Use **pytest** for all testing
+- Achieve comprehensive test coverage
+- Test all agent interactions and A2A communications
+- Mock external dependencies (BEMOBI API, WhatsApp bridge)
+- Integration tests for end-to-end flows
+
+### Environment Configuration
+```python
+# Use environment variables for configuration
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+API_KEY = os.getenv("API_KEY")
+BRIDGE_URL = os.getenv("WHATSAPP_BRIDGE_URL", "http://localhost:3001")
+```
+
+### Security Standards
+- Never hardcode API keys or sensitive data
+- Use environment variables for all configuration
+- Implement proper input validation
+- Use HTTPS for all external communications
+- Implement rate limiting and request validation
+
+### Performance Standards
+- Response time: < 2 seconds for agent responses
+- Support 1000+ concurrent conversations
+- Use async/await for all I/O operations
+- Implement proper caching strategies
+- Monitor and log performance metrics
+
+### Documentation Standards
+- Document all public functions and classes
+- Include type hints for better IDE support
+- Maintain up-to-date README files
+- Document API endpoints with FastAPI automatic docs
+- Include examples in docstrings
+
+### Git Workflow
+- Use meaningful commit messages
+- Create feature branches for new development
+- Ensure all tests pass before merging
+- Use pull requests for code review
+- Tag releases appropriately

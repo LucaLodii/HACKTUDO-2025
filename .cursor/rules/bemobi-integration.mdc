@@ -1,0 +1,85 @@
+---
+globs: **/bemobi/**,**/tools/bemobi/**
+description: BEMOBI payment gateway integration patterns and regional compliance
+---
+
+# BEMOBI Integration Guidelines
+
+## Payment Gateway Integration
+
+### Core Implementation
+Reference [sofIA/tools/bemobi/bemobi_tool.py](mdc:sofIA/tools/bemobi/bemobi_tool.py) for complete integration patterns.
+
+### Multi-Merchant Support
+- Handle multiple BEMOBI clients simultaneously
+- Regional compliance for LATAM, Africa, and Asia
+- Currency support: BRL, NGN, THB, and other regional currencies
+- Payment method variety: cards, PIX, Boleto, bank transfers
+
+### Merchant Configuration
+```python
+@dataclass
+class BemobiMerchant:
+    merchant_id: str
+    store_name: str
+    region: str  # "latam", "africa", "asia"
+    currency: str  # "BRL", "NGN", "THB"
+    api_key: str
+    supported_payment_methods: List[str]
+```
+
+### Regional Payment Methods
+- **LATAM**: PIX, Boleto, Credit/Debit Cards
+- **Africa**: Bank transfers, Mobile money, Cards  
+- **Asia**: Local payment methods, Digital wallets, Cards
+
+### API Operations
+1. **create_payment_intent()** - Initialize payment with BEMOBI
+2. **process_payment()** - Execute payment through gateway
+3. **get_payment_status()** - Check transaction status
+4. **add_merchant()** - Onboard new merchants
+5. **get_merchant_info()** - Retrieve merchant configuration
+
+### BEMOBI Tool Structure
+```python
+class BemobiTool:
+    def __init__(self):
+        self.processor = BemobiPaymentProcessor(bemobi_config)
+        self._add_demo_merchants()  # Demo merchants for testing
+    
+    async def execute(self, **kwargs):
+        # Route operations to appropriate handlers
+        # Handle errors gracefully
+        # Return structured responses
+```
+
+### Error Handling
+- Comprehensive error handling for API failures
+- Retry logic for transient failures
+- Graceful degradation when BEMOBI is unavailable
+- Detailed error logging for debugging
+
+### Security Requirements
+- API key-based authentication
+- Webhook signature verification using HMAC-SHA256
+- Secure storage of merchant credentials
+- End-to-end encryption for sensitive data
+
+### Webhook Integration
+- Real-time payment status updates
+- Signature verification for webhook authenticity
+- Idempotent webhook processing
+- Complete webhook audit trails
+
+### Demo Merchants (for development)
+- **Café do João** (LATAM) - BRL currency, PIX/Card support
+- **Tech Store Lagos** (Africa) - NGN currency, Card/Bank transfer
+- **Bangkok Electronics** (Asia) - THB currency, Card/Bank transfer
+
+### Production Checklist
+- [ ] BEMOBI API credentials configured
+- [ ] Regional payment methods enabled
+- [ ] Webhook endpoints secured
+- [ ] Merchant onboarding flow implemented
+- [ ] Error handling and monitoring active
+- [ ] Compliance with regional regulations verified

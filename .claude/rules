@@ -1,0 +1,239 @@
+# sofIA Multi-Agent Payment System - Cursor Rules
+
+## Project Overview
+This is sofIA (Smart Orchestrated Financial Intelligence Agent), a revolutionary multi-agent payment orchestration system for BEMOBI that enables complete purchase flows through WhatsApp conversations using Google's AP2 Protocol.
+
+## Core Architecture Principles
+
+### Multi-Agent System
+- **Orchestrator Agent**: Main conversation coordinator using Gemini 2.5 Flash
+- **sofIA Payment Agent**: AP2 Protocol compliance and payment processing
+- **BEMOBI Integration Agent**: Payment gateway integration
+- **WhatsApp Interface Agent**: WhatsApp Web.js bridge communication
+
+### Agent-to-Agent (A2A) Communication
+- Use structured JSON messages between agents
+- Maintain transaction context across agent interactions
+- Implement graceful error handling and retry mechanisms
+- Log all A2A communications for audit trails
+
+### AP2 Protocol Compliance
+- Always implement proper Intent, Cart, and Payment Mandates
+- Use RSA-2048 digital signatures for all mandates
+- Generate JWT tokens with 15-minute expiry for carts
+- Maintain complete audit trails with timestamps
+
+## Technology Stack Guidelines
+
+### Backend (Python 3.12+)
+- Use FastAPI for REST API endpoints
+- Implement with Google ADK (Agent Development Kit)
+- Use uv for dependency management
+- Follow async/await patterns for better performance
+
+### WhatsApp Integration
+- Use Node.js bridge with WhatsApp Web.js
+- Implement HTTP REST API communication with Python backend
+- Handle media files and rich messaging features
+- Maintain session persistence across conversations
+
+### Cryptography & Security
+- Use cryptography library for RSA operations
+- Implement JWT tokens with proper expiry handling
+- Create verifiable credentials for user authorization
+- Ensure end-to-end encryption for sensitive data
+
+## Code Organization
+
+### Agent Structure Pattern
+```
+agent_folder/
+├── agent.py      # Agent definition (Google ADK)
+├── prompt.py     # Agent instructions
+└── tools/        # Agent tools folder
+    ├── __init__.py
+    └── tool_name.py
+```
+
+### Tool Implementation
+- Tools are functions, not classes
+- Use dynamic loading pattern (see sofIA/tools/__init__.py)
+- Include comprehensive error handling
+- Document tool parameters and return types
+
+### AP2 Protocol Implementation
+- Core implementation in sofIA/tools/ap2_protocol/ap2_core.py
+- Use Pydantic models for mandate validation
+- Implement proper signature verification
+- Handle mandate expiry and renewal
+
+## Coding Standards
+
+### Function Design
+- Keep functions focused and single-purpose
+- Use type hints for all parameters and return values
+- Include docstrings with parameter descriptions
+- Implement proper error handling with specific exceptions
+
+### Agent Coordination
+- Use response markers like [PAYMENT_INTENT], [PAYMENT_CONFIRM], [PAYMENT_CANCEL]
+- Coordinate between agents via orchestrator tool
+- Maintain session state and payment flow status
+- Handle agent failures gracefully with fallbacks
+
+### Payment Flow Implementation
+1. Intent Detection → Create Intent Mandate
+2. Cart Creation → Generate Cart Mandate with RSA signature
+3. Payment Processing → Create Payment Mandate with audit trail
+4. Completion → Return transaction details and status
+
+## API Integration Guidelines
+
+### BEMOBI Gateway Integration
+- Use environment variables for API keys and endpoints
+- Implement mock fallbacks for development/testing
+- Handle regional payment methods (PIX, Boleto, Cards)
+- Support multiple currencies (BRL, NGN, THB)
+
+### WhatsApp Web.js Bridge
+- Handle incoming messages from Node.js bridge
+- Process natural language for intent detection
+- Support rich media (images, documents, catalogs)
+- Implement real-time status updates
+
+## Security Requirements
+
+### Authentication
+- Use Google API keys for Gemini integration
+- Implement proper service account patterns for production
+- Store sensitive data in environment variables
+- Use JWT tokens for temporary authorization
+
+### Data Protection
+- Encrypt all payment-related data
+- Implement proper access controls
+- Maintain audit logs for compliance
+- Use secure communication channels
+
+## Testing Guidelines
+
+### Test Structure
+- Use pytest for all testing
+- Implement comprehensive unit tests for tools
+- Test agent interactions and A2A communication
+- Include AP2 mandate validation tests
+
+### Mock Implementation
+- Mock external API calls (BEMOBI, WhatsApp)
+- Use test fixtures for AP2 mandates
+- Implement demo mode for development
+- Test error scenarios and edge cases
+
+## Development Workflow
+
+### Environment Setup
+```bash
+# Install dependencies
+uv sync
+
+# Run development server
+uv run app.py
+
+# Run demo mode
+uv run app.py demo
+
+# Start WhatsApp bridge
+cd whatsapp-bridge && npm start
+```
+
+### Code Quality
+- Use type hints throughout the codebase
+- Follow PEP 8 style guidelines
+- Implement comprehensive error handling
+- Document all functions and classes
+
+## Performance Guidelines
+
+### Response Time Targets
+- Agent responses: < 2 seconds
+- Payment processing: < 5 seconds
+- WhatsApp message handling: < 1 second
+- A2A communication: < 500ms
+
+### Scalability Considerations
+- Support 1000+ concurrent conversations
+- Implement efficient session management
+- Use async patterns for I/O operations
+- Cache frequent operations appropriately
+
+## Error Handling Patterns
+
+### Agent Communication Errors
+- Implement retry logic with exponential backoff
+- Provide meaningful error messages to users
+- Log errors for debugging and monitoring
+- Gracefully degrade functionality when possible
+
+### Payment Processing Errors
+- Handle gateway timeouts and failures
+- Implement transaction rollback mechanisms
+- Provide clear error messages to customers
+- Maintain transaction integrity across agents
+
+## Documentation Requirements
+
+### Code Documentation
+- Include module docstrings explaining purpose
+- Document all public functions and classes
+- Provide examples for complex operations
+- Maintain up-to-date README files
+
+### API Documentation
+- Document all REST endpoints
+- Include request/response examples
+- Explain authentication requirements
+- Provide integration guides for merchants
+
+## Deployment Considerations
+
+### Environment Configuration
+- Use .env files for local development
+- Support multiple environments (dev, staging, prod)
+- Implement proper secrets management
+- Configure logging levels appropriately
+
+### Monitoring and Observability
+- Log all important events and errors
+- Implement health check endpoints
+- Monitor system performance metrics
+- Track business metrics (transactions, success rates)
+
+## Business Logic Guidelines
+
+### Merchant Configuration
+- Support multi-merchant setups
+- Handle regional payment method variations
+- Implement merchant-specific pricing rules
+- Provide merchant onboarding workflows
+
+### Customer Experience
+- Maintain conversation context across sessions
+- Provide clear payment status updates
+- Handle multiple languages and regions
+- Implement graceful error recovery
+
+## Compliance Requirements
+
+### AP2 Protocol Compliance
+- Implement all mandate types correctly
+- Use proper cryptographic signatures
+- Maintain audit trails for all transactions
+- Handle mandate expiry appropriately
+
+### Regional Compliance
+- Support LATAM, Africa, and Asia regulations
+- Implement proper data privacy measures
+- Handle currency conversion and taxes
+- Maintain compliance documentation
+
+Remember: This is a hackathon project implementing cutting-edge agent-to-agent commerce using AP2 Protocol. Focus on demonstrating the revolutionary potential of conversational commerce while maintaining security and compliance standards.

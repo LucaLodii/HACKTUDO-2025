@@ -1,0 +1,135 @@
+---
+alwaysApply: true
+description: Business requirements and success metrics for sofIA multi-agent payment system
+---
+
+# sofIA Business Requirements & Success Metrics
+
+## Target Customer: BEMOBI
+**Mobile Payment Gateway Provider** serving merchants across LATAM, Africa, and Asia.
+
+## Core Value Proposition
+
+### For BEMOBI:
+- New revenue stream through WhatsApp commerce platform
+- Competitive differentiation in emerging markets
+- Reduced support costs through automated agent interactions
+- Enhanced merchant acquisition through superior UX
+
+### For BEMOBI's Merchants:
+- 90%+ reduction in checkout abandonment
+- Native WhatsApp integration without technical complexity
+- AP2-compliant security and audit trails
+- Automated customer service through AI agents
+
+### For End Customers:
+- Seamless purchase experience within WhatsApp
+- No app downloads or website navigation required
+- Secure, verifiable payment transactions
+- Natural language interaction with AI agents
+
+## Success Metrics & KPIs
+
+### Technical Metrics
+- **System Uptime**: 99.9% availability target
+- **Response Time**: < 2 seconds average response time
+- **Error Rate**: < 0.1% transaction failure rate
+- **AP2 Compliance**: 100% mandate verification success rate
+
+### Business Metrics
+- **Merchant Adoption**: 50+ merchants onboarded in first 6 months
+- **Transaction Volume**: $1M+ in processed transactions monthly
+- **Customer Satisfaction**: 4.5+ star rating from merchants
+- **Revenue Growth**: 25% month-over-month revenue growth
+
+### User Experience Metrics
+- **Conversation Completion Rate**: 85%+ successful purchase completions
+- **Time to Purchase**: < 3 minutes average purchase time
+- **Customer Support Tickets**: < 5% of transactions require support
+- **WhatsApp Engagement**: 90%+ message response rate
+
+## Business Model & Pricing
+
+### Revenue Streams for BEMOBI
+1. **Platform Licensing**
+   - Setup Fee: One-time setup fee for sofIA platform integration
+   - Monthly Subscription: Tiered pricing based on transaction volume
+   - Per-Transaction Fee: Small percentage fee on each processed transaction
+
+2. **Value-Added Services**
+   - Merchant Onboarding: Professional services for merchant setup
+   - Custom Integration: Tailored integration for large merchants
+   - Support & Training: Premium support and training packages
+   - Analytics & Reporting: Advanced analytics and reporting dashboards
+
+### Pricing Strategy
+- **Starter**: Up to 1,000 transactions/month - $99/month
+- **Professional**: Up to 10,000 transactions/month - $499/month
+- **Enterprise**: Unlimited transactions - Custom pricing
+- **Transaction Fees**: 2.9% + $0.30 per transaction (with volume discounts)
+
+## Target Market Segments
+
+### Primary: BEMOBI's Existing Merchants
+- **SMBs in LATAM**: Cafes, restaurants, small retailers
+- **E-commerce in Africa**: Online stores, digital services
+- **Mobile-first businesses in Asia**: Apps, digital content
+
+### Secondary: New Market Expansion
+- **WhatsApp-first businesses**: Companies already using WhatsApp for sales
+- **Digital natives**: Startups and tech companies
+- **Traditional businesses**: Brick-and-mortar stores going digital
+
+## Go-to-Market Strategy
+
+### Launch Strategy
+1. **Phase 1**: 5 select BEMOBI merchants for 30-day pilot
+2. **Phase 2**: 25 merchants across all regions for 60-day pilot
+3. **Phase 3**: Full rollout to BEMOBI's entire merchant base
+
+### Marketing Approach
+- **BEMOBI Partnership**: Joint marketing and sales efforts
+- **Case Studies**: Success stories from pilot merchants
+- **Demo Environment**: Interactive demos for potential merchants
+- **Conference Presence**: Fintech and payments industry events
+
+## Risk Mitigation
+
+### Technical Risks
+- **AP2 Protocol Compliance**: Continuous monitoring and testing
+- **WhatsApp API Changes**: Official Business API as backup
+- **BEMOBI API Dependencies**: Robust error handling and fallbacks
+
+### Business Risks
+- **Market Adoption**: Comprehensive pilot program and incentives
+- **Regulatory Compliance**: Legal review and compliance monitoring
+- **Competition**: First-mover advantage and continuous innovation
+
+## Implementation Roadmap
+
+### Phase 1: Core AP2 Implementation (Week 1-2) ✅
+- AP2 Protocol core implementation
+- Basic agent architecture setup
+- WhatsApp Web.js bridge integration
+- Multi-agent orchestration framework
+
+### Phase 2: BEMOBI Integration (Week 3-4)
+- BEMOBI API integration tool development
+- Multi-merchant configuration system
+- Regional payment method routing
+- Webhook handling and status updates
+- Merchant onboarding flow
+
+### Phase 3: Production Readiness (Week 5-6)
+- Security hardening and penetration testing
+- Performance optimization and load testing
+- Monitoring and alerting system
+- Documentation and deployment guides
+- BEMOBI pilot program setup
+
+### Phase 4: Scale and Launch (Week 7-8)
+- Multi-region deployment
+- Merchant training and support
+- Marketing materials and demo preparation
+- Go-to-market strategy execution
+- Post-launch monitoring and optimization

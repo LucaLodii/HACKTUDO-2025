@@ -1,0 +1,66 @@
+---
+alwaysApply: true
+description: Project structure and architecture guidelines for sofIA multi-agent payment system
+---
+
+# sofIA Project Structure & Architecture
+
+## Core Architecture
+This project implements a multi-agent payment orchestration system following the AP2 Protocol for BEMOBI integration.
+
+### Main Components
+- **Entry Point**: [app.py](mdc:app.py) - FastAPI server and main application entry
+- **Orchestrator Agent**: [orchestrator/agent.py](mdc:orchestrator/agent.py) - Main conversation coordinator
+- **sofIA Payment Agent**: [sofIA/agent.py](mdc:sofIA/agent.py) - AP2 Protocol compliance agent
+- **Multi-Agent Tools**: [orchestrator/tools/orchestration_tool.py](mdc:orchestrator/tools/orchestration_tool.py) - A2A coordination
+
+### Agent Architecture
+```
+Orchestrator Agent (Google ADK + Gemini 2.5 Flash)
+├── Conversation flow management
+├── Intent detection and routing
+├── A2A coordination
+└── Session state management
+
+sofIA Payment Agent (Google ADK + AP2 Tools)
+├── AP2 mandate creation/verification
+├── Cryptographic signatures
+├── Payment flow orchestration
+└── Security compliance
+
+BEMOBI Integration Agent (Custom Tools)
+├── Merchant configuration
+├── Payment gateway operations
+├── Regional payment methods
+└── Webhook handling
+
+WhatsApp Interface Agent (Node.js Bridge)
+├── Message sending/receiving
+├── Media handling
+├── Session management
+└── Real-time status updates
+```
+
+### Key Directories
+- `sofIA/` - Main payment agent with AP2 Protocol tools
+- `orchestrator/` - Multi-agent orchestration and A2A communication
+- `sofIA/tools/ap2_protocol/` - AP2 Protocol implementation
+- `sofIA/tools/bemobi/` - BEMOBI payment gateway integration
+- `sofIA/tools/whatsapp/` - WhatsApp Web.js bridge integration
+- `whatsapp-bridge/` - Node.js bridge for WhatsApp Web.js
+- `tests/` - Comprehensive test suite
+
+### Technology Stack
+- **Backend**: Python 3.12+, FastAPI, Google ADK
+- **AI Models**: Gemini 2.5 Flash
+- **Package Manager**: uv
+- **WhatsApp**: Node.js + WhatsApp Web.js bridge
+- **Protocol**: AP2 (Agent Payments Protocol)
+- **Payment Gateway**: BEMOBI integration
+
+### Development Patterns
+- All agents use Google ADK framework
+- Agent-to-Agent communication via structured A2A messages
+- AP2 Protocol compliance for all payment operations
+- Cryptographic signatures for mandate verification
+- Session-based conversation management

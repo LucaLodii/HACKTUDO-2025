@@ -1,0 +1,97 @@
+---
+globs: **/whatsapp/**,**/whatsapp-bridge/**,**/tools/whatsapp/**
+description: WhatsApp Web.js integration patterns and bridge communication
+---
+
+# WhatsApp Integration Guidelines
+
+## WhatsApp Web.js Bridge Architecture
+
+### Bridge Components
+- **Node.js Bridge**: [whatsapp-bridge/server.js](mdc:whatsapp-bridge/server.js) - WhatsApp Web.js integration
+- **Python Integration**: [sofIA/tools/whatsapp/whatsapp_tool.py](mdc:sofIA/tools/whatsapp/whatsapp_tool.py) - Bridge communication
+- **Webhook Handler**: [sofIA/tools/whatsapp/webhook_handler.py](mdc:sofIA/tools/whatsapp/webhook_handler.py) - Message processing
+
+### Communication Flow
+```
+WhatsApp Phone ←→ WhatsApp Web.js ←→ Node.js Bridge ←→ Python sofIA Agent
+                                                              ↓
+                                                     AP2 Protocol Processing
+```
+
+### Bridge Configuration
+```javascript
+// WhatsApp Bridge Setup
+const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || "http://localhost:3001"
+const bridgeTimeout = 10  // seconds
+```
+
+### WhatsApp Tool Operations
+Reference [sofIA/tools/whatsapp/whatsapp_tool.py](mdc:sofIA/tools/whatsapp/whatsapp_tool.py):
+
+1. **send_message(to, message)** - Send text messages via bridge
+2. **get_client_info()** - Get WhatsApp client status
+3. **check_status()** - Verify bridge health
+
+### Message Processing Flow
+1. User sends message via WhatsApp → WhatsApp Web.js
+2. Bridge forwards to sofIA → Creates AP2 Intent Mandate
+3. sofIA processes payment intent → Creates Cart Mandate
+4. User confirms → Payment Mandate created
+5. Transaction processed with full AP2 compliance
+
+### API Endpoints
+- `GET /health` - Health check (both services)
+- `POST /process-whatsapp-message` - Message processing
+- `POST /send-message` - Send WhatsApp message
+- `GET /client-info` - WhatsApp client status
+
+### Session Management
+- In-memory session storage for development
+- Redis for production session persistence
+- Conversation history maintenance
+- User context preservation across messages
+
+### Error Handling
+- Bridge connection failure recovery
+- Message delivery retry logic
+- Graceful degradation when WhatsApp unavailable
+- Complete error logging and monitoring
+
+### Security Considerations
+- End-to-end encryption for sensitive messages
+- Webhook signature verification
+- Rate limiting for message sending
+- Secure storage of conversation data
+
+### Real-time Features
+- ✅ Instant message delivery
+- ✅ QR code authentication
+- ✅ Session persistence
+- ✅ Error handling & reconnection
+
+### Development Setup
+```bash
+# Start WhatsApp Bridge
+cd whatsapp-bridge
+npm install
+./start.sh  # Or: npm start
+
+# Scan QR code with WhatsApp
+# Wait for "WhatsApp client is ready!"
+
+# Start sofIA Agent
+uv run app.py
+```
+
+### Production Considerations
+- Official WhatsApp Business API integration as backup
+- Alternative messaging platforms (Telegram, Signal) as contingency
+- Load balancing for multiple bridge instances
+- Monitoring and alerting for bridge health
+
+### Testing Patterns
+- Mock WhatsApp bridge for unit tests
+- Integration tests with real WhatsApp Web.js
+- Load testing for concurrent conversations
+- End-to-end conversation flow testing

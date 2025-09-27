@@ -1,0 +1,23 @@
+[project]
+name = "hacktudo-2025"
+version = "0.1.0"
+description = "HACKTUDO 2025 hackathon project"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.117.1",
+    "google-adk>=1.15.1",
+    "requests>=2.32.5",
+    "aiohttp>=3.9.0",
+    "python-dotenv>=1.0.0",
+    "ap2",
+    "cryptography>=46.0.1",
+    "pyjwt>=2.10.1",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.37.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+]
+
+[tool.uv.sources]
+ap2 = { git = "https://github.com/google-agentic-commerce/AP2.git", rev = "main" }

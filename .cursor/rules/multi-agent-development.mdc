@@ -1,0 +1,84 @@
+---
+globs: **/agent.py,**/orchestrator/**,**/tools/**
+description: Multi-agent development patterns and A2A communication guidelines
+---
+
+# Multi-Agent Development Guidelines
+
+## Agent Architecture Patterns
+
+### Orchestrator Agent
+Reference [orchestrator/agent.py](mdc:orchestrator/agent.py) and [orchestrator/tools/orchestration_tool.py](mdc:orchestrator/tools/orchestration_tool.py)
+
+**Responsibilities:**
+- Main conversation coordinator and A2A orchestrator
+- Natural language understanding and response generation
+- Intent detection and routing to appropriate agents
+- Conversation state management
+- A2A coordination between specialized agents
+
+**Key Functions:**
+- `process_user_message()` - Handle incoming messages and coordinate A2A
+- `_handle_agent_intent()` - Route intents to appropriate agents
+- `_create_payment_intent()` - Coordinate with sofIA agent for payments
+- `_process_payment()` - Handle payment completion via A2A
+
+### sofIA Payment Agent
+Reference [sofIA/agent.py](mdc:sofIA/agent.py) and [sofIA/prompt.py](mdc:sofIA/prompt.py)
+
+**Responsibilities:**
+- AP2 Protocol compliance and payment processing
+- AP2 mandate creation and management
+- Cryptographic signature generation and verification
+- Payment flow orchestration
+- Security and compliance enforcement
+
+**Tools Integration:**
+- `ap2_protocol_tool` - AP2 Protocol operations
+- `whatsapp_tool` - WhatsApp communication
+- `bemobi_tool` - BEMOBI payment gateway integration
+
+### Agent-to-Agent Communication (A2A)
+
+#### A2A Message Format
+```python
+a2a_context = f"""
+Agent-to-Agent Request from {source_agent}:
+
+User wants to purchase: {user_message}
+User ID: {user_id}
+Product: {product_info['name']}
+Price: {product_info['currency']} {product_info['price']:.2f}
+
+Please {requested_action} and return the {expected_response}.
+Use your {tool_type} tools to process this request.
+"""
+```
+
+#### A2A Coordination Patterns
+1. **Intent Detection**: Orchestrator detects payment intent → Routes to sofIA agent
+2. **Payment Processing**: sofIA agent creates AP2 mandates → Coordinates with BEMOBI agent
+3. **Status Updates**: All agents maintain transaction context via A2A messages
+
+#### Session Management
+- Use `_user_sessions` global storage for conversation state
+- Maintain `payment_state` tracking: "idle" → "intent_created" → "completed"
+- Store `current_intent`, `product_info`, and agent responses
+
+### Error Handling Patterns
+- Graceful failure recovery in A2A communication
+- Retry mechanisms for failed agent interactions
+- Fallback responses when agents are unavailable
+- Complete error logging for debugging
+
+### Performance Requirements
+- Response time: < 2 seconds for agent responses
+- Support 1000+ concurrent conversations
+- 99.9% uptime for payment processing
+- Auto-scale based on demand
+
+### Security Considerations
+- All A2A communications must be logged
+- Sensitive data encryption in transit and at rest
+- Role-based access control for different agent types
+- Complete audit trails for compliance
