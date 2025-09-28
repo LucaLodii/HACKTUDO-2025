@@ -1,60 +1,65 @@
-FROM node:18-alpine
+FROM node:18-bullseye-slim
 
-# Set working directory
-WORKDIR /app
-
-# Install system dependencies for WhatsApp Web.js + Render.com compatibility
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
+# Install Chrome and dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
     ca-certificates \
-    ttf-freefont \
-    dbus \
+    procps \
+    libxss1 \
     xvfb \
     curl \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Tell Puppeteer to skip installing Chromium. We'll be using the installed package.
+# Install Google Chrome
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable \
     NODE_OPTIONS="--max-old-space-size=1024" \
     DISPLAY=:99
+
+WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies with optimizations for Render
+RUN npm install --only=production --silent && \
+    npm cache clean --force && \
+    rm -rf /tmp/*
 
 # Copy source code
 COPY . .
 
-# Create directory for WhatsApp session data
+# Create auth directory
 RUN mkdir -p /app/.wwebjs_auth
 
-# Expose port
+# Create startup script for Render
+COPY <<EOF /app/start.sh
+#!/bin/bash
+# Start virtual display for headless Chrome
+Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset > /dev/null 2>&1 &
+export DISPLAY=:99
+
+# Wait for Xvfb to start
+sleep 2
+
+# Start the application
+exec node server.js
+EOF
+
+RUN chmod +x /app/start.sh
+
 EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3001/health || exit 1
 
-# Create startup script for Render.com
-RUN echo '#!/bin/sh\n\
-# Start virtual display for headless Chrome on Render\n\
-if [ "$RENDER" = "true" ]; then\n\
-    echo "🌐 Starting Xvfb for Render.com..."\n\
-    Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &\n\
-    export DISPLAY=:99\n\
-    sleep 2\n\
-fi\n\
-\n\
-# Start the application\n\
-exec node server.js' > /app/start.sh && chmod +x /app/start.sh
-
-# Start the application
 CMD ["/app/start.sh"]
-
