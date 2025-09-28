@@ -18,6 +18,13 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 import logging
 
+# Load environment variables to ensure they're available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available, continue with system env vars
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,8 +41,15 @@ class MercadoPagoConfig:
     
     @classmethod
     def from_env(cls) -> 'MercadoPagoConfig':
+        access_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN")
+        if not access_token:
+            raise ValueError(
+                "MERCADOPAGO_ACCESS_TOKEN environment variable is required. "
+                "Please set it in your .env file or environment."
+            )
+
         return cls(
-            access_token=os.getenv("MERCADOPAGO_ACCESS_TOKEN"),
+            access_token=access_token,
             public_key=os.getenv("MERCADOPAGO_PUBLIC_KEY"),
             client_id=os.getenv("MERCADOPAGO_CLIENT_ID"),
             client_secret=os.getenv("MERCADOPAGO_CLIENT_SECRET"),
@@ -195,8 +209,9 @@ class MercadoPagoPaymentProcessor:
         preference_response = await self._get_preference(preference_id)
         if "error" in preference_response:
             return preference_response
-        
+
         preference = preference_response["preference"]
+        logger.info(f"Retrieved preference: {preference.get('id', 'unknown')}")
         
         # Create payment payload
         payment_payload = {
@@ -214,18 +229,33 @@ class MercadoPagoPaymentProcessor:
         # Add payment method specific data
         payment_payload.update(mp_payment_data)
         
-        # Add payer information from preference
-        if "payer" in preference:
+        # Add payer information from preference or create default for PIX
+        if "payer" in preference and preference["payer"].get("email"):
+            # Only use payer from preference if it has valid data
             payment_payload["payer"] = preference["payer"]
+        elif payment_method.lower() == "pix":
+            # PIX payments require payer information - provide minimal valid data
+            payment_payload["payer"] = {
+                "email": "customer@example.com",
+                "first_name": "Customer",
+                "last_name": "Payment",
+                "identification": {
+                    "type": "CPF",
+                    "number": "12345678909"  # Valid CPF format for testing
+                }
+            }
         
         try:
+            # Debug: log the payment payload
+            logger.info(f"Payment payload: {payment_payload}")
+
             response = requests.post(
                 f"{self.config.base_url}/v1/payments",
                 headers=headers,
                 json=payment_payload,
                 timeout=30
             )
-            
+
             logger.info(f"Mercado Pago payment processing: {response.status_code}")
             
             if response.status_code in [200, 201]:
@@ -663,10 +693,13 @@ class MercadoPagoTool:
         }
 
 
-# Initialize tool instance
-_mercadopago_tool = MercadoPagoTool()
+# Lazy tool instance
+_mercadopago_tool = None
 
 
 def mercadopago_tool(**kwargs):
     """Mercado Pago payment tool function."""
+    global _mercadopago_tool
+    if _mercadopago_tool is None:
+        _mercadopago_tool = MercadoPagoTool()
     return _mercadopago_tool.execute(**kwargs)

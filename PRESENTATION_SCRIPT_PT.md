@@ -49,7 +49,6 @@
 **"Os resultados falam por si: 99%+ de taxa de sucesso nas transações. 90% de redução no abandono de checkout. Menos de 2 segundos de tempo de resposta. 99,9% de uptime."**
 
 *[Visual: Gráfico de projeção de receita]*
-
 **"Para a BEMOBI, isso significa uma nova fonte de receita de US$ 10 milhões. Para os comerciantes, significa nunca mais perder um cliente. Para os clientes, significa pagamentos tão naturais quanto conversar."**
 
 *[Visual: Demo ao vivo de transação real]*
