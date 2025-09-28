@@ -27,7 +27,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies with optimizations for Render
-RUN npm ci --only=production --silent && \
+RUN npm install --only=production --silent && \
     npm cache clean --force && \
     rm -rf /tmp/*
 
