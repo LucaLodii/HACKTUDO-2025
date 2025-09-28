@@ -18,6 +18,7 @@ COPY uv.lock ./
 COPY sofIA/ ./sofIA/
 COPY orchestrator/ ./orchestrator/
 COPY app.py ./
+COPY notification_api.py ./
 
 # Install Python dependencies
 RUN uv sync --frozen
