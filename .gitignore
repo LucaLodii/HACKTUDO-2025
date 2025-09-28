@@ -384,6 +384,7 @@ credentials.json
 *.pid
 *.sock
 *.lock
+!uv.lock
 
 # Cache directories
 .cache/
