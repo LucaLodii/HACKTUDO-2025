@@ -750,8 +750,8 @@ async def _process_payment_with_enhanced_credentials(
             from sofIA.tools.mercadopago.mercadopago_tool import mercadopago_tool
 
             try:
-                real_payment_result = await mercadopago_tool.execute(
-                    operation="create_payment",
+                real_payment_result = await mercadopago_tool(
+                    operation="process_payment",
                     merchant_id="production_merchant",
                     amount=product_info['price'],
                     currency=product_info['currency'],
