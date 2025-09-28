@@ -157,7 +157,7 @@ class RealAP2TransactionExecutor:
             currency = cart.payment_request.details.total.amount.currency
             
             # Execute payment through real payment processor
-            transaction_result = self.payment_processor.execute_payment(
+            transaction_result = await self.payment_processor.execute_payment(
                 payment_mandate_id=transaction_id,
                 cart_mandate_id=cart.id,
                 payment_credentials=payment_credentials,

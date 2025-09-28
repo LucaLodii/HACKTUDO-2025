@@ -133,7 +133,7 @@ class PaymentProcessor:
             "sandbox": self.config.get("paypal_sandbox", True)
         }
     
-    def execute_payment(
+    async def execute_payment(
         self,
         payment_mandate_id: str,
         cart_mandate_id: str,
@@ -159,11 +159,11 @@ class PaymentProcessor:
         method = payment_credentials.method_type
         
         if method == PaymentMethod.PIX:
-            return self._execute_pix_payment(
+            return await self._execute_pix_payment(
                 payment_credentials, amount, currency, payment_mandate_id
             )
         elif method == PaymentMethod.CARD:
-            return self._execute_card_payment(
+            return await self._execute_card_payment(
                 payment_credentials, amount, currency, payment_mandate_id
             )
         elif method == PaymentMethod.PAYPAL:
@@ -200,7 +200,7 @@ class PaymentProcessor:
         except Exception:
             return False
     
-    def _execute_pix_payment(
+    async def _execute_pix_payment(
         self, 
         credentials: PaymentCredentials, 
         amount: float, 
@@ -230,22 +230,21 @@ class PaymentProcessor:
             }
             
             # Create preference and process payment
-            import asyncio
-            preference_result = asyncio.run(mp_processor.create_payment_intent(
+            preference_result = await mp_processor.create_payment_intent(
                 merchant_id=self.config.get("merchant_id", "sofia-merchant"),
                 amount=amount,
                 currency=currency,
                 description=f"AP2 Payment - Mandate: {mandate_id}",
                 customer_data=payment_data.get("customer_data")
-            ))
+            )
             
             if preference_result.get("success"):
                 # Process the payment
-                payment_result = asyncio.run(mp_processor.process_payment(
+                payment_result = await mp_processor.process_payment(
                     preference_id=preference_result["id"],
                     payment_method="pix",
                     payment_data=payment_data
-                ))
+                )
                 
                 if payment_result.get("success"):
                     return TransactionResult(
@@ -279,7 +278,7 @@ class PaymentProcessor:
                 timestamp=datetime.now(timezone.utc)
             )
     
-    def _execute_card_payment(
+    async def _execute_card_payment(
         self, 
         credentials: PaymentCredentials, 
         amount: float, 
@@ -310,22 +309,21 @@ class PaymentProcessor:
             }
             
             # Create preference and process payment
-            import asyncio
-            preference_result = asyncio.run(mp_processor.create_payment_intent(
+            preference_result = await mp_processor.create_payment_intent(
                 merchant_id=self.config.get("merchant_id", "sofia-merchant"),
                 amount=amount,
                 currency=currency,
                 description=f"AP2 Payment - Mandate: {mandate_id}",
                 customer_data=payment_data.get("customer_data")
-            ))
+            )
             
             if preference_result.get("success"):
                 # Process the payment
-                payment_result = asyncio.run(mp_processor.process_payment(
+                payment_result = await mp_processor.process_payment(
                     preference_id=preference_result["id"],
                     payment_method="credit_card",
                     payment_data=payment_data
-                ))
+                )
                 
                 if payment_result.get("success"):
                     return TransactionResult(
