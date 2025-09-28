@@ -377,13 +377,11 @@ class SofiaWhatsAppBridge {
 
         // Initialize client with timeout and better error handling
         console.log('🚀 Starting WhatsApp client initialization...');
-        
-        try {
-            await this.whatsappClient.initialize();
-        } catch (error) {
+
+        this.whatsappClient.initialize().catch(error => {
             console.error('❌ Initial WhatsApp client initialization failed:', error.message);
             // Don't retry immediately, let the timeout handle it
-        }
+        });
 
         // Set a timeout to detect if QR code generation fails
         setTimeout(() => {
