@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
 RUN pip install uv
 
 # Copy project files
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
+COPY uv.lock ./
 COPY sofIA/ ./sofIA/
 COPY orchestrator/ ./orchestrator/
 COPY app.py ./
