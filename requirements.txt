@@ -1,26 +1,33 @@
 # Render deployment requirements
 # This file is used by Render for Python deployment
+# Synchronized with pyproject.toml dependencies
 
 # Core dependencies
-fastapi==0.115.0
-uvicorn==0.24.0
-python-dotenv==1.0.0
-google-generativeai==0.3.2
-google-adk==0.1.0
+fastapi>=0.117.1
+uvicorn>=0.37.0
+python-dotenv>=1.0.0
+google-generativeai>=0.8.0
+google-adk>=1.15.1
 
 # AP2 Protocol dependencies
-cryptography==41.0.7
-pyjwt==2.8.0
-requests==2.31.0
+ap2
+cryptography>=46.0.1
+pyjwt>=2.10.1
+requests>=2.32.5
 
 # WhatsApp integration
-aiohttp==3.9.1
-websockets==12.0
+aiohttp>=3.9.0
+python-multipart>=0.0.20
 
 # Database integration
-supabase==2.3.0
-postgrest==0.13.2
+supabase>=2.20.0
+postgrest>=2.20.0
+aiosqlite>=0.20.0
+
+# Google Cloud dependencies
+google-cloud-iam>=2.15.0
+google-auth>=2.35.0
 
 # Development and testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
+pytest>=8.4.2
+pytest-asyncio>=1.2.0
