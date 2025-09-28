@@ -1,0 +1,185 @@
+# =============================================================================
+# Dockerfile para sofIA Agents (Python) - Deploy Separado
+# =============================================================================
+# Este Dockerfile é otimizado apenas para os agentes Python
+# O WhatsApp Bridge deve ser deployado separadamente
+
+FROM python:3.12-slim
+
+# =============================================================================
+# METADADOS
+# =============================================================================
+LABEL maintainer="sofIA Team"
+LABEL description="sofIA WhatsApp Payment Agent - Python Agents Only"
+LABEL version="1.0.0"
+
+# =============================================================================
+# CONFIGURAÇÕES BÁSICAS
+# =============================================================================
+
+# Definir variáveis de ambiente
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app
+ENV PORT=8000
+ENV HOST=0.0.0.0
+
+# Definir diretório de trabalho
+WORKDIR /app
+
+# =============================================================================
+# INSTALAÇÃO DE DEPENDÊNCIAS DO SISTEMA
+# =============================================================================
+
+# Instalar dependências do sistema necessárias
+RUN apt-get update && apt-get install -y \
+    # Dependências básicas
+    curl \
+    git \
+    build-essential \
+    # Dependências para compilação Python
+    gcc \
+    g++ \
+    # Dependências para criptografia
+    libssl-dev \
+    libffi-dev \
+    # Dependências para requests
+    ca-certificates \
+    # Limpeza
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# =============================================================================
+# INSTALAÇÃO DO UV (PACKAGE MANAGER)
+# =============================================================================
+
+# Instalar uv para gerenciamento de dependências
+RUN pip install --no-cache-dir uv
+
+# =============================================================================
+# CÓPIA DE ARQUIVOS DO PROJETO
+# =============================================================================
+
+# Copiar arquivos de dependências primeiro (para cache de layers)
+COPY pyproject.toml uv.lock ./
+
+# Copiar apenas os arquivos necessários para os agentes
+COPY sofIA/ ./sofIA/
+COPY orchestrator/ ./orchestrator/
+COPY app.py ./
+COPY notification_api.py ./
+
+# Copiar arquivos de configuração (se existirem)
+COPY *.md ./
+COPY env.deploy.example ./
+
+# =============================================================================
+# INSTALAÇÃO DE DEPENDÊNCIAS PYTHON
+# =============================================================================
+
+# Instalar dependências Python usando uv
+RUN uv sync --frozen --no-dev
+
+# =============================================================================
+# CONFIGURAÇÃO DO USUÁRIO
+# =============================================================================
+
+# Criar usuário não-root para segurança
+RUN groupadd -r sofia && useradd -r -g sofia sofia
+
+# Criar diretórios necessários
+RUN mkdir -p /app/logs /app/temp && \
+    chown -R sofia:sofia /app
+
+# Mudar para usuário não-root
+USER sofia
+
+# =============================================================================
+# CONFIGURAÇÃO DE LOGS E TEMPORÁRIOS
+# =============================================================================
+
+# Criar diretórios para logs e arquivos temporários
+RUN mkdir -p /app/logs /app/temp
+
+# =============================================================================
+# CONFIGURAÇÃO DE REDE
+# =============================================================================
+
+# Expor porta do serviço
+EXPOSE 8000
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+
+# Health check para monitoramento
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# =============================================================================
+# CONFIGURAÇÃO DE INICIALIZAÇÃO
+# =============================================================================
+
+# Script de inicialização
+COPY <<EOF /app/start.sh
+#!/bin/bash
+set -e
+
+echo "🚀 Iniciando sofIA Payment Agent..."
+echo "📅 Data: \$(date)"
+echo "🌍 Ambiente: \${ENVIRONMENT:-production}"
+echo "🔧 Debug: \${DEBUG:-false}"
+
+# Verificar variáveis obrigatórias
+if [ -z "\$GOOGLE_API_KEY" ]; then
+    echo "❌ ERRO: GOOGLE_API_KEY não definida"
+    exit 1
+fi
+
+if [ -z "\$MERCADOPAGO_ACCESS_TOKEN" ]; then
+    echo "⚠️  AVISO: MERCADOPAGO_ACCESS_TOKEN não definida - usando modo mock"
+fi
+
+echo "✅ Configuração validada"
+echo "🎯 Iniciando servidor na porta \${PORT:-8000}"
+
+# Iniciar aplicação
+exec uv run app.py
+EOF
+
+# Tornar script executável
+RUN chmod +x /app/start.sh
+
+# =============================================================================
+# COMANDO DE INICIALIZAÇÃO
+# =============================================================================
+
+# Usar script de inicialização
+CMD ["/app/start.sh"]
+
+# =============================================================================
+# INFORMAÇÕES DE DEPLOY
+# =============================================================================
+
+# Labels para identificação
+LABEL org.opencontainers.image.title="sofIA Payment Agent"
+LABEL org.opencontainers.image.description="AI-powered WhatsApp payment processing agent"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.source="https://github.com/your-org/sofia-payment-agent"
+
+# =============================================================================
+# NOTAS DE USO
+# =============================================================================
+
+# Para usar este Dockerfile:
+# 1. docker build -f Dockerfile.agents -t sofia-agents .
+# 2. docker run -p 8000:8000 --env-file .env sofia-agents
+#
+# Variáveis de ambiente obrigatórias:
+# - GOOGLE_API_KEY
+# - MERCADOPAGO_ACCESS_TOKEN (opcional, usa mock se não definida)
+# - MERCADOPAGO_PUBLIC_KEY (opcional)
+# - MERCADOPAGO_CLIENT_ID (opcional)
+# - MERCADOPAGO_CLIENT_SECRET (opcional)
+#
+# O WhatsApp Bridge deve ser deployado separadamente!

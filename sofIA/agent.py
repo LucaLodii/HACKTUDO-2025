@@ -4,6 +4,8 @@ from .tools import (
     ap2_protocol_tool,
     whatsapp_tool,
     bemobi_tool,
+    pagseguro_tool,
+    mercadopago_tool,
 )
 # Import subscription management tools
 from .tools.subscription_management import subscription_management_tool
@@ -23,6 +25,10 @@ except ImportError:
 tools_list = [ap2_protocol_tool, whatsapp_tool]
 if bemobi_tool is not None:
     tools_list.append(bemobi_tool)
+if pagseguro_tool is not None:
+    tools_list.append(pagseguro_tool)
+if mercadopago_tool is not None:
+    tools_list.append(mercadopago_tool)
 
 # Add subscription management tools
 tools_list.extend([

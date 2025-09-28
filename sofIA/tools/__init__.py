@@ -13,6 +13,18 @@ try:
 except ImportError:
     bemobi_tool = None
 
+# Import PagSeguro tool (always available, uses mock mode if no credentials)
+try:
+    from .pagseguro.pagseguro_tool import pagseguro_tool
+except ImportError:
+    pagseguro_tool = None
+
+# Import Mercado Pago tool (always available, uses mock mode if no credentials)
+try:
+    from .mercadopago.mercadopago_tool import mercadopago_tool
+except ImportError:
+    mercadopago_tool = None
+
 # Import enterprise tools if available
 try:
     from .enterprise import auth_tool, registry_tool, credentials_tool, disputes_tool
@@ -25,6 +37,10 @@ except ImportError:
 base_tools = ["ap2_protocol_tool", "whatsapp_tool"]
 if bemobi_tool is not None:
     base_tools.append("bemobi_tool")
+if pagseguro_tool is not None:
+    base_tools.append("pagseguro_tool")
+if mercadopago_tool is not None:
+    base_tools.append("mercadopago_tool")
 
 # Add enterprise tools to exports
 enterprise_tool_names = [tool.name if tool else None for tool in enterprise_tools]

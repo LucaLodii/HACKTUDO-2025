@@ -1,0 +1,117 @@
+# =============================================================================
+# Docker Compose para sofIA Agents (Python) - Deploy Separado
+# =============================================================================
+# Este compose é apenas para os agentes Python
+# O WhatsApp Bridge deve ser deployado separadamente
+
+version: "3.8"
+
+services:
+  sofia-agents:
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
+    container_name: sofia-payment-agents
+    restart: unless-stopped
+
+    # Configurações de rede
+    ports:
+      - "8000:8000"
+
+    # Variáveis de ambiente
+    environment:
+      # Configurações básicas
+      - HOST=0.0.0.0
+      - PORT=8000
+      - ENVIRONMENT=production
+      - DEBUG=false
+
+      # Google AI (obrigatório)
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+
+      # Mercado Pago (opcional - usa mock se não definido)
+      - MERCADOPAGO_ACCESS_TOKEN=${MERCADOPAGO_ACCESS_TOKEN:-}
+      - MERCADOPAGO_PUBLIC_KEY=${MERCADOPAGO_PUBLIC_KEY:-}
+      - MERCADOPAGO_CLIENT_ID=${MERCADOPAGO_CLIENT_ID:-}
+      - MERCADOPAGO_CLIENT_SECRET=${MERCADOPAGO_CLIENT_SECRET:-}
+      - MERCADOPAGO_ENVIRONMENT=${MERCADOPAGO_ENVIRONMENT:-sandbox}
+      - MERCADOPAGO_USE_MOCK=${MERCADOPAGO_USE_MOCK:-true}
+      - MERCADOPAGO_WEBHOOK_URL=${MERCADOPAGO_WEBHOOK_URL:-}
+
+      # AP2 Protocol
+      - AGENT_ID=${AGENT_ID:-sofia-whatsapp-agent}
+      - MERCHANT_ID=${MERCHANT_ID:-sofia-merchant}
+
+      # Configurações de negócio
+      - DEFAULT_CURRENCY=${DEFAULT_CURRENCY:-BRL}
+      - DEFAULT_TIMEZONE=${DEFAULT_TIMEZONE:-America/Sao_Paulo}
+      - DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE:-pt-BR}
+
+      # Segurança
+      - JWT_SECRET=${JWT_SECRET:-sofia-jwt-secret-key-32-chars}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-sofia-encryption-key-32-chars}
+
+      # WhatsApp Bridge (URL externa)
+      - WHATSAPP_BRIDGE_URL=${WHATSAPP_BRIDGE_URL:-http://localhost:3001}
+
+      # Supabase (opcional)
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+
+    # Volumes para persistência
+    volumes:
+      - ./logs:/app/logs
+      - ./temp:/app/temp
+
+    # Configurações de recursos
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+        reservations:
+          memory: 512M
+          cpus: "0.25"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Configurações de rede
+    networks:
+      - sofia-network
+
+# =============================================================================
+# REDE PERSONALIZADA
+# =============================================================================
+networks:
+  sofia-network:
+    driver: bridge
+    name: sofia-agents-network
+
+# =============================================================================
+# VOLUMES PERSISTENTES
+# =============================================================================
+volumes:
+  sofia-logs:
+    driver: local
+  sofia-temp:
+    driver: local
+# =============================================================================
+# INSTRUÇÕES DE USO
+# =============================================================================
+
+# Para usar este compose:
+# 1. Copie env.deploy.example para .env
+# 2. Configure as variáveis de ambiente
+# 3. Execute: docker-compose -f docker-compose.agents.yml up -d
+#
+# Para parar: docker-compose -f docker-compose.agents.yml down
+# Para logs: docker-compose -f docker-compose.agents.yml logs -f
+# Para rebuild: docker-compose -f docker-compose.agents.yml up --build -d
+#
+# IMPORTANTE: O WhatsApp Bridge deve ser deployado separadamente!

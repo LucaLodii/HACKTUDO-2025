@@ -138,6 +138,26 @@ async def health_check():
         "active_locks": session_stats["active_locks"]
     }
 
+@app.post("/test-mercadopago")
+async def test_mercadopago(request: Request):
+    """Teste do Mercado Pago para verificar configuração."""
+    try:
+        data = await request.json()
+        
+        # Importa a ferramenta do Mercado Pago
+        from sofIA.tools.mercadopago.mercadopago_tool import mercadopago_tool
+        
+        # Executa o teste
+        result = await mercadopago_tool(**data)
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Erro no teste do Mercado Pago: {str(e)}"
+        }
+
 
 @app.get("/sessions")
 async def get_sessions():
