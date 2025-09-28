@@ -651,18 +651,58 @@ async def _process_enhanced_credentials(message: str, user_id: str, session: Dic
                 supported_payment_methods=["pix", "credit_card", "boleto"]
             )
 
-        # Step 3: Detect payment method from user input
+        # Step 3: Use AP2 credential collector for proper payment method discovery
+        from sofIA.tools.ap2_protocol.ap2_credential_collector import get_credential_collector
+        from sofIA.tools.ap2_protocol.ap2_core import AP2PaymentAgent
+        
+        # Initialize AP2 agent and credential collector
+        ap2_agent = AP2PaymentAgent(agent_id="sofia_claro", merchant_id="claro_merchant")
+        credential_collector = get_credential_collector(ap2_agent)
+        
+        # Discover available payment methods per AP2 spec
+        available_methods = await credential_collector.discover_payment_methods(user_id, "latam")
+        
+        # Detect payment method from user input (enhanced detection)
         payment_method = _detect_payment_method(message)
         if not payment_method:
-            return {
-                "reply": "❌ Método de pagamento não reconhecido. Use os formatos indicados acima.",
-                "session_updates": {}
-            }
+            # Try to map to AP2 method types
+            if any(keyword in message.upper() for keyword in ["CARTAO", "CARTÃO", "CREDITO", "CRÉDITO", "CARD"]):
+                payment_method = "basic-card"
+            elif any(keyword in message.upper() for keyword in ["PIX"]):
+                payment_method = "pix"
+            else:
+                return {
+                    "reply": "❌ Método de pagamento não reconhecido. Use os formatos indicados acima.",
+                    "session_updates": {}
+                }
 
-        # Step 4: Process payment credentials
-        print(f"💳 Processing {payment_method} credentials")
-        credential_result = await user_service.process_payment_credentials(
-            user_id, message, payment_method
+        # Step 4: Process payment credentials using AP2 collector
+        print(f"💳 Processing {payment_method} credentials with AP2 collector")
+        
+        # Get product info for amount and currency
+        product_info = session.get("product_info")
+        if not product_info:
+            # This should not happen in normal flow - extract product info if missing
+            print("⚠️ Warning: product_info missing from session, extracting from message")
+            product_info = _extract_product_info(message, session.get("operator", "CLARO"))
+            # Update session with extracted info
+            session["product_info"] = product_info
+        
+        # Ensure we have valid price and currency
+        if not product_info.get("price") or product_info.get("price", 0) <= 0:
+            print("⚠️ Warning: Invalid price in product_info, using fallback")
+            product_info["price"] = 19.90
+        if not product_info.get("currency"):
+            product_info["currency"] = "BRL"
+        
+        # Collect credentials using AP2 protocol
+        print(f"💰 Processing payment: {product_info['name']} - {product_info['currency']} {product_info['price']:.2f}")
+        credential_result = await credential_collector.collect_payment_credentials(
+            user_id=user_id,
+            cart_mandate_id=session.get("cart_id", f"cart-{user_id}"),
+            selected_method=payment_method,
+            amount=product_info["price"],
+            currency=product_info["currency"]
         )
 
         if not credential_result["success"]:
@@ -819,7 +859,7 @@ def _detect_payment_method(message: str) -> Optional[str]:
 
     if any(keyword in message_upper for keyword in ["PIX_EMAIL", "PIX_TELEFONE", "PIX_CPF", "PIX_CHAVE"]):
         return "pix"
-    elif message_upper.startswith("CARTAO"):
+    elif any(keyword in message_upper for keyword in ["CARTAO", "CARTÃO", "CREDITO", "CRÉDITO", "CARD"]):
         return "credit_card"
     elif message_upper.startswith("BOLETO"):
         return "boleto"
@@ -954,15 +994,53 @@ def _parse_payment_credentials(message: str) -> Optional[Dict[str, Any]]:
                     }
                 }
 
-        elif message.startswith("CARTAO"):
-            # Format: CARTAO [número] [vencimento] [cvv]
-            parts = message.split()
-            if len(parts) >= 4:
+        elif any(keyword in message for keyword in ["CARTAO", "CARTÃO", "CREDITO", "CRÉDITO", "CARD"]):
+            # Handle multiple formats:
+            # Format 1: CARTAO [número] [vencimento] [cvv]
+            # Format 2: Cartão de Crédito\n[número] [vencimento] [nome]\n[primeira_vez]\n[nome] [cpf] [telefone]
+            lines = message.split('\n')
+            
+            # Try to extract card number and expiry from the message
+            card_number = None
+            expiry = None
+            cardholder_name = None
+            
+            # Look for card number pattern (handle both full and partial numbers)
+            import re
+            # Try full 16-digit pattern first
+            card_pattern = r'\b\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b'
+            card_match = re.search(card_pattern, message)
+            if card_match:
+                card_number = card_match.group().replace(' ', '')
+            else:
+                # Try partial card number pattern (4+ digits)
+                partial_pattern = r'\b\d{4,}\b'
+                partial_match = re.search(partial_pattern, message)
+                if partial_match:
+                    card_number = partial_match.group()
+            
+            # Look for expiry pattern (MM/YY or MM/YYYY)
+            expiry_pattern = r'\b\d{1,2}/\d{2,4}\b'
+            expiry_match = re.search(expiry_pattern, message)
+            if expiry_match:
+                expiry = expiry_match.group()
+            
+            # Look for name pattern (words that are not numbers or common keywords)
+            name_pattern = r'\b[A-Za-zÀ-ÿ]+\s+[A-Za-zÀ-ÿ]+\b'
+            name_matches = re.findall(name_pattern, message)
+            if name_matches:
+                # Filter out common keywords and take the first valid name
+                filtered_names = [name for name in name_matches if not any(keyword in name.upper() for keyword in ["CARTAO", "CARTÃO", "CREDITO", "CRÉDITO", "CARD", "PRIMEIRA", "VEZ"])]
+                if filtered_names:
+                    cardholder_name = filtered_names[0]
+            
+            if card_number and expiry:
                 return {
                     "method": "basic-card",
                     "details": {
-                        "card_number": f"****{parts[1][-4:]}",  # Mask card number
-                        "expiry": parts[2],
+                        "card_number": f"****{card_number[-4:]}",  # Mask card number
+                        "expiry": expiry,
+                        "cardholder_name": cardholder_name,
                         "encrypted_data": "encrypted_card_details",  # In production, encrypt
                         "consent_proof": "user_confirmed"
                     }
