@@ -3,7 +3,7 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for WhatsApp Web.js
+# Install system dependencies for WhatsApp Web.js + Render.com compatibility
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -11,11 +11,17 @@ RUN apk add --no-cache \
     freetype-dev \
     harfbuzz \
     ca-certificates \
-    ttf-freefont
+    ttf-freefont \
+    dbus \
+    xvfb \
+    curl \
+    && rm -rf /var/cache/apk/*
 
 # Tell Puppeteer to skip installing Chromium. We'll be using the installed package.
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    NODE_OPTIONS="--max-old-space-size=1024" \
+    DISPLAY=:99
 
 # Copy package files
 COPY package*.json ./
@@ -36,6 +42,19 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3001/health || exit 1
 
+# Create startup script for Render.com
+RUN echo '#!/bin/sh\n\
+# Start virtual display for headless Chrome on Render\n\
+if [ "$RENDER" = "true" ]; then\n\
+    echo "🌐 Starting Xvfb for Render.com..."\n\
+    Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &\n\
+    export DISPLAY=:99\n\
+    sleep 2\n\
+fi\n\
+\n\
+# Start the application\n\
+exec node server.js' > /app/start.sh && chmod +x /app/start.sh
+
 # Start the application
-CMD ["npm", "start"]
+CMD ["/app/start.sh"]
 
