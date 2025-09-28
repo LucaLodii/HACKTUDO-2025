@@ -64,8 +64,9 @@ class AP2MercadoPagoIntegration:
                 merchants=[merchant_id],
                 requires_confirmation=True
             )
-            
-            intent_id = f"intent-{user_id}-{datetime.now(timezone.utc).timestamp()}"
+
+            # Get the intent ID from the agent's active intents (last one created)
+            intent_id = list(self.ap2_agent.active_intents.keys())[-1]
             print(f"✅ Intent Mandate created: {intent_id}")
             
             # Step 2: Parse user intent and create payment items

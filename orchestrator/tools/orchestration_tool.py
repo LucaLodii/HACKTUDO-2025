@@ -744,45 +744,62 @@ async def _process_payment_with_enhanced_credentials(
         use_mercadopago = os.getenv("MERCADOPAGO_USE_MOCK", "true").lower() == "false"
 
         if use_mercadopago:
-            print(f"💳 Using REAL Mercado Pago for payment processing")
+            print(f"💳 Using REAL AP2 Protocol with Mercado Pago integration")
 
-            # Execute real payment through Mercado Pago directly
-            from sofIA.tools.mercadopago.mercadopago_tool import mercadopago_tool
+            # Use complete AP2 integration for real payments
+            from sofIA.tools.ap2_protocol.complete_ap2_integration import CompleteAP2Integration, AP2Config
 
             try:
-                real_payment_result = await mercadopago_tool(
-                    operation="create_payment_intent",
-                    merchant_id="production_merchant",
+                # Configure AP2 for production with Mercado Pago
+                # Use merchant ID from environment or default
+                #merchant_id = os.getenv("MERCHANT_ID", "claro_brasil")
+
+                ap2_config = AP2Config(
+                    agent_id="sofia-production-agent",
+                    merchant_id="claro_brasil",
+                    region="latam",
+                    supported_currencies=["BRL"],
+                    audit_logging=True
+                )
+
+                # Initialize complete AP2 integration
+                ap2_integration = CompleteAP2Integration(ap2_config)
+
+                # Process payment using complete AP2 protocol
+                real_payment_result = await ap2_integration.process_whatsapp_payment(
+                    user_message=f"Pagamento de {product_info['name']}",
+                    user_id=user_id,
+                    merchant_id="claro_brasil",
                     amount=product_info['price'],
                     currency=product_info['currency'],
-                    description=f"Pagamento {product_info['name']}",
-                    customer_data={
-                        "name": user_id.split('@')[0],
-                        "email": f"{user_id.split('@')[0]}@whatsapp.user",
-                        "phone_number": user_id.replace('@c.us', '').replace('55', ''),
-                        "cpf": "12345678909"  # In production, collect real CPF
+                    payment_method=payment_method,
+                    payment_data={
+                        "customer_name": user_id.split('@')[0],
+                        "customer_email": f"{user_id.split('@')[0]}@whatsapp.user",
+                        "customer_phone": user_id.replace('@c.us', '').replace('55', ''),
+                        "description": f"Pagamento {product_info['name']}"
                     }
                 )
 
                 if real_payment_result.get("success"):
-                    print(f"✅ REAL MERCADO PAGO PAYMENT SUCCESSFUL!")
-                    print(f"   Payment ID: {real_payment_result.get('payment_id')}")
+                    print(f"✅ REAL AP2 PAYMENT WITH MERCADO PAGO SUCCESSFUL!")
+                    print(f"   Transaction ID: {real_payment_result.get('transaction_id')}")
                     print(f"   Amount: {product_info['currency']} {product_info['price']}")
 
                     return {
-                        "reply": f"✅ **Pagamento Mercado Pago Concluído!**\n**{product_info['name']}**\n💰 {product_info['currency']} {product_info['price']:.2f}\n💳 Método: {payment_method.upper()}\n🎫 ID: {real_payment_result.get('payment_id', 'N/A')}\n\n**Pagamento processado com sucesso via Mercado Pago!**",
+                        "reply": f"✅ **Pagamento AP2 + Mercado Pago Concluído!**\n**{product_info['name']}**\n💰 {product_info['currency']} {product_info['price']:.2f}\n💳 Método: {payment_method.upper()}\n🔐 Transaction ID: {real_payment_result.get('transaction_id', 'N/A')}\n\n**Pagamento processado com máxima segurança via AP2 Protocol + Mercado Pago!**",
                         "session_updates": {
                             "payment_state": "completed",
-                            "payment_id": real_payment_result.get('payment_id'),
+                            "transaction_id": real_payment_result.get('transaction_id'),
                             "payment_method": payment_method
                         }
                     }
                 else:
-                    print(f"❌ Real Mercado Pago payment failed: {real_payment_result.get('error')}")
+                    print(f"❌ Real AP2 payment failed: {real_payment_result.get('error')}")
                     raise Exception(f"Real payment failed: {real_payment_result.get('error')}")
 
             except Exception as e:
-                print(f"❌ Mercado Pago payment error: {e}")
+                print(f"❌ AP2 payment error: {e}")
                 # Fall back to demo mode
                 use_mercadopago = False
 
