@@ -159,6 +159,7 @@ class AP2PaymentAgent:
             raise ValueError("Invalid user credential provided")
         
         intent_mandate = IntentMandate(
+            id=intent_id,
             user_cart_confirmation_required=requires_confirmation,
             natural_language_description=user_message,
             merchants=merchants,

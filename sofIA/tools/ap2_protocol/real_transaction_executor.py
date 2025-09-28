@@ -11,10 +11,9 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 
-# Note: AP2 types would be imported from the official AP2 library
-# For now, we'll use placeholder types that match the AP2 specification
-from typing import Any as IntentMandate, Any as CartMandate, Any as PaymentMandate
-from typing import Any as PaymentResponse, Any as PaymentItem, Any as PaymentCurrencyAmount
+# Import actual AP2 types
+from .types.mandate import IntentMandate, CartMandate, PaymentMandate
+from .types.payment_request import PaymentResponse, PaymentItem, PaymentCurrencyAmount
 from .ap2_core import MandateSigner, AP2PaymentAgent
 from .payment_processor import PaymentProcessor, PaymentCredentials, TransactionResult, PaymentMethod
 
@@ -116,8 +115,9 @@ class RealAP2TransactionExecutor:
             )
         ]
         
+        # Use the intent ID from the intent mandate
         cart_mandate = self.agent.create_cart_mandate(
-            intent_id=transaction_id,
+            intent_id=intent_mandate.id,
             items=payment_items
         )
         
@@ -157,7 +157,7 @@ class RealAP2TransactionExecutor:
             currency = cart.payment_request.details.total.amount.currency
             
             # Execute payment through real payment processor
-            transaction_result = await self.payment_processor.execute_payment(
+            transaction_result = self.payment_processor.execute_payment(
                 payment_mandate_id=transaction_id,
                 cart_mandate_id=cart.id,
                 payment_credentials=payment_credentials,
@@ -193,7 +193,7 @@ class RealAP2TransactionExecutor:
             payment_mandate = self.agent.create_payment_mandate(
                 cart_id=cart.id,
                 payment_response=payment_response,
-                user_id=transaction.intent_mandate.contents.user_id
+                user_id=transaction.intent_mandate.user_id
             )
             
             transaction.payment_mandate = payment_mandate

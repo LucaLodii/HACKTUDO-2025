@@ -310,13 +310,13 @@ class CompleteAP2Integration:
         audit_entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "transaction_id": transaction.transaction_id,
-            "user_id": transaction.intent_mandate.contents.user_id,
+            "user_id": transaction.intent_mandate.user_id,
             "amount": payment_result.get("amount"),
             "currency": payment_result.get("currency"),
             "payment_method": payment_result.get("payment_method"),
             "status": "completed",
             "mandate_chain": {
-                "intent_mandate": transaction.intent_mandate.contents.id,
+                "intent_mandate": transaction.intent_mandate.id,
                 "cart_mandate": transaction.cart_mandate.contents.id if transaction.cart_mandate else None,
                 "payment_mandate": transaction.payment_mandate.payment_mandate_contents.payment_mandate_id if transaction.payment_mandate else None
             },

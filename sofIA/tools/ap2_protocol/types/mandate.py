@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 class IntentMandate(BaseModel):
     """Intent Mandate per AP2 specification"""
+    id: str  # Intent mandate ID
     user_cart_confirmation_required: bool
     natural_language_description: str
     merchants: Optional[List[str]] = None
