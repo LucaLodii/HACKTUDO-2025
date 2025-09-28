@@ -695,14 +695,26 @@ async def _process_enhanced_credentials(message: str, user_id: str, session: Dic
         if not product_info.get("currency"):
             product_info["currency"] = "BRL"
         
-        # Collect credentials using AP2 protocol
+        # Parse user's payment data from message
+        parsed_credentials = _parse_payment_credentials(message)
+        if not parsed_credentials:
+            return {
+                "reply": "❌ Formato inválido. Por favor, forneça os dados de pagamento no formato correto.",
+                "session_updates": {}
+            }
+        
+        # Store parsed credentials in session for later use
+        session["parsed_credentials"] = parsed_credentials
+        
+        # Collect credentials using AP2 protocol with user's actual data
         print(f"💰 Processing payment: {product_info['name']} - {product_info['currency']} {product_info['price']:.2f}")
-        credential_result = await credential_collector.collect_payment_credentials(
+        credential_result = await credential_collector.collect_payment_credentials_with_data(
             user_id=user_id,
             cart_mandate_id=session.get("cart_id", f"cart-{user_id}"),
             selected_method=payment_method,
             amount=product_info["price"],
-            currency=product_info["currency"]
+            currency=product_info["currency"],
+            user_payment_data=parsed_credentials
         )
 
         if not credential_result["success"]:
@@ -711,10 +723,24 @@ async def _process_enhanced_credentials(message: str, user_id: str, session: Dic
                 "session_updates": {}
             }
 
-        # Step 5: Proceed to payment with enhanced AP2 authentication
-        return await _process_payment_with_enhanced_credentials(
+        # Step 5: Update session state and proceed to payment
+        session_updates = {
+            "payment_state": "payment_processing",
+            "credential_result": credential_result,
+            "payment_method": payment_method
+        }
+        
+        # Proceed to payment with enhanced AP2 authentication
+        payment_result = await _process_payment_with_enhanced_credentials(
             message, user_id, session, payment_method, credential_result
         )
+        
+        # Merge session updates
+        if "session_updates" in payment_result:
+            session_updates.update(payment_result["session_updates"])
+        
+        payment_result["session_updates"] = session_updates
+        return payment_result
 
     except Exception as e:
         print(f"Enhanced credential processing failed: {e}")
@@ -765,7 +791,10 @@ async def _process_payment_with_enhanced_credentials(
                 # Initialize complete AP2 integration
                 ap2_integration = CompleteAP2Integration(ap2_config)
 
-                # Process payment using complete AP2 protocol
+                # Get parsed credentials from session
+                parsed_credentials = session.get("parsed_credentials", {})
+                
+                # Process payment using complete AP2 protocol with user's actual data
                 real_payment_result = await ap2_integration.process_whatsapp_message(
                     user_message=f"Pagamento de {product_info['name']}",
                     user_id=user_id,
@@ -775,7 +804,9 @@ async def _process_payment_with_enhanced_credentials(
                         "customer_name": user_id.split('@')[0],
                         "customer_email": f"{user_id.split('@')[0]}@whatsapp.user",
                         "customer_phone": user_id.replace('@c.us', '').replace('55', ''),
-                        "description": f"Pagamento {product_info['name']}"
+                        "description": f"Pagamento {product_info['name']}",
+                        "payment_credentials": parsed_credentials,
+                        "credential_result": credential_result
                     }
                 )
 

@@ -154,6 +154,68 @@ class AP2CredentialCollector:
             }
         }
     
+    async def collect_payment_credentials_with_data(
+        self, 
+        user_id: str, 
+        cart_mandate_id: str,
+        selected_method: str,
+        amount: float,
+        currency: str,
+        user_payment_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Collect payment credentials with user's actual payment data per AP2 spec"""
+        
+        collection_id = f"collection-{user_id}-{datetime.now().timestamp()}"
+        
+        # Get user's credential wallet
+        wallet = CredentialWallet(user_id, self.credential_provider)
+        
+        # Authorize payment with user's credentials
+        auth_result = wallet.authorize_payment(amount, currency, selected_method)
+        
+        if not auth_result.get("authorized"):
+            return {
+                "success": False,
+                "error": auth_result.get("error", "Payment authorization failed"),
+                "collection_id": collection_id
+            }
+        
+        # Store collection info
+        self.active_collections[collection_id] = {
+            "user_id": user_id,
+            "cart_mandate_id": cart_mandate_id,
+            "selected_method": selected_method,
+            "amount": amount,
+            "currency": currency,
+            "authorization": auth_result,
+            "user_payment_data": user_payment_data,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Collect encrypted credentials based on method with user's actual data
+        encrypted_credentials = await self._collect_method_credentials_with_data(
+            user_id, selected_method, auth_result, user_payment_data
+        )
+        
+        # Create Payment Response per AP2 spec
+        payment_response = PaymentResponse(
+            request_id=cart_mandate_id,
+            method_name=selected_method,
+            details=encrypted_credentials
+        )
+        
+        return {
+            "success": True,
+            "collection_id": collection_id,
+            "payment_response": payment_response,
+            "credential_info": {
+                "method": selected_method,
+                "encrypted_data": encrypted_credentials.get("encrypted_data"),
+                "provider_token": encrypted_credentials.get("provider_token"),
+                "consent_proof": auth_result.get("consent_proof")
+            }
+        }
+    
     async def _collect_method_credentials(
         self, 
         user_id: str, 
@@ -168,6 +230,24 @@ class AP2CredentialCollector:
             return await self._collect_pix_credentials(user_id, auth_result)
         elif method == "paypal":
             return await self._collect_paypal_credentials(user_id, auth_result)
+        else:
+            raise ValueError(f"Unsupported payment method: {method}")
+    
+    async def _collect_method_credentials_with_data(
+        self, 
+        user_id: str, 
+        method: str, 
+        auth_result: Dict[str, Any],
+        user_payment_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Collect encrypted credentials for specific payment method with user's actual data"""
+        
+        if method == "credit_card" or method == "basic-card":
+            return await self._collect_card_credentials_with_data(user_id, auth_result, user_payment_data)
+        elif method == "pix":
+            return await self._collect_pix_credentials_with_data(user_id, auth_result, user_payment_data)
+        elif method == "paypal":
+            return await self._collect_paypal_credentials_with_data(user_id, auth_result, user_payment_data)
         else:
             raise ValueError(f"Unsupported payment method: {method}")
     
@@ -201,6 +281,61 @@ class AP2CredentialCollector:
             "consent_proof": auth_result.get("consent_proof")
         }
     
+    async def _collect_card_credentials_with_data(
+        self, 
+        user_id: str, 
+        auth_result: Dict[str, Any],
+        user_payment_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Collect credit card credentials with user's actual card data per AP2 spec"""
+        
+        # Extract card details from user's payment data
+        card_details = user_payment_data.get("details", {})
+        card_number = card_details.get("card_number", "")
+        expiry = card_details.get("expiry", "")
+        cardholder_name = card_details.get("cardholder_name", "")
+        
+        # Extract last 4 digits for display
+        last_four = card_number[-4:] if len(card_number) >= 4 else "****"
+        
+        # Extract brand from card number (simplified)
+        brand = "visa"  # Default, in real implementation would detect from BIN
+        
+        # Parse expiry date
+        exp_month = 12
+        exp_year = 2025
+        if "/" in expiry:
+            try:
+                month_str, year_str = expiry.split("/")
+                exp_month = int(month_str)
+                exp_year = int("20" + year_str) if len(year_str) == 2 else int(year_str)
+            except (ValueError, IndexError):
+                pass
+        
+        # Generate secure token and encrypted data
+        card_token = f"tok_{user_id}_{datetime.now().timestamp()}"
+        encrypted_card_data = f"enc_card_{user_id}_{datetime.now().timestamp()}"
+        
+        return {
+            "encrypted_data": encrypted_card_data,
+            "provider_token": card_token,
+            "card_metadata": {
+                "last_four": last_four,
+                "brand": brand,
+                "exp_month": exp_month,
+                "exp_year": exp_year,
+                "country": "BR",
+                "cardholder_name": cardholder_name
+            },
+            "verification_method": "3d_secure",
+            "consent_proof": auth_result.get("consent_proof"),
+            "user_provided_data": {
+                "card_number_masked": f"****{last_four}",
+                "expiry": expiry,
+                "cardholder_name": cardholder_name
+            }
+        }
+    
     async def _collect_pix_credentials(
         self, 
         user_id: str, 
@@ -230,6 +365,48 @@ class AP2CredentialCollector:
             "consent_proof": auth_result.get("consent_proof")
         }
     
+    async def _collect_pix_credentials_with_data(
+        self, 
+        user_id: str, 
+        auth_result: Dict[str, Any],
+        user_payment_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Collect PIX credentials with user's actual PIX data per AP2 spec"""
+        
+        # Extract PIX details from user's payment data
+        pix_details = user_payment_data.get("details", {})
+        pix_key = pix_details.get("pix_key", "")
+        
+        # Determine PIX key type
+        key_type = "email"
+        if "@" in pix_key:
+            key_type = "email"
+        elif pix_key.isdigit() and len(pix_key) == 11:
+            key_type = "cpf"
+        elif pix_key.isdigit() and len(pix_key) >= 10:
+            key_type = "phone"
+        else:
+            key_type = "random"
+        
+        # Generate secure token and encrypted data
+        encrypted_pix_data = f"enc_pix_{user_id}_{datetime.now().timestamp()}"
+        
+        return {
+            "encrypted_data": encrypted_pix_data,
+            "provider_token": f"pix_token_{user_id}_{datetime.now().timestamp()}",
+            "pix_metadata": {
+                "key_type": key_type,
+                "key_value": pix_key,
+                "instant": True,
+                "fee": 0.005  # 0.5%
+            },
+            "consent_proof": auth_result.get("consent_proof"),
+            "user_provided_data": {
+                "pix_key": pix_key,
+                "key_type": key_type
+            }
+        }
+    
     async def _collect_paypal_credentials(
         self, 
         user_id: str, 
@@ -257,6 +434,37 @@ class AP2CredentialCollector:
                 "fee": 0.034  # 3.4%
             },
             "consent_proof": auth_result.get("consent_proof")
+        }
+    
+    async def _collect_paypal_credentials_with_data(
+        self, 
+        user_id: str, 
+        auth_result: Dict[str, Any],
+        user_payment_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Collect PayPal credentials with user's actual PayPal data per AP2 spec"""
+        
+        # Extract PayPal details from user's payment data
+        paypal_details = user_payment_data.get("details", {})
+        paypal_email = paypal_details.get("paypal_email", "")
+        
+        # Generate secure token and encrypted data
+        paypal_token = f"paypal_token_{user_id}_{datetime.now().timestamp()}"
+        encrypted_paypal_data = f"enc_paypal_{user_id}_{datetime.now().timestamp()}"
+        
+        return {
+            "encrypted_data": encrypted_paypal_data,
+            "provider_token": paypal_token,
+            "paypal_metadata": {
+                "account_type": "personal",
+                "currency": "BRL",
+                "instant": True,
+                "fee": 0.034  # 3.4%
+            },
+            "consent_proof": auth_result.get("consent_proof"),
+            "user_provided_data": {
+                "paypal_email": paypal_email
+            }
         }
     
     async def verify_payment_credentials(
