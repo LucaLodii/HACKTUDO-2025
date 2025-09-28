@@ -23,7 +23,7 @@ WhatsApp Phone ←→ WhatsApp Web.js ←→ Node.js Bridge ←→ Python sofIA 
 ```javascript
 // WhatsApp Bridge Setup
 const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || "http://localhost:3001"
-const bridgeTimeout = 10  // seconds
+const bridgeTimeout = 100  // seconds
 ```
 
 ### WhatsApp Tool Operations
