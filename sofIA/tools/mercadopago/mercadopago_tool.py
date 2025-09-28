@@ -468,6 +468,14 @@ class MercadoPagoTool:
                 currency="BRL",
                 access_token=self.config.access_token,
                 supported_payment_methods=["credit_card", "pix"]
+            ),
+            # Add claro_brasil merchant for sofIA integration
+            MercadoPagoMerchant(
+                merchant_id="claro_brasil",
+                store_name="Claro Brasil",
+                currency="BRL",
+                access_token=self.config.access_token,
+                supported_payment_methods=["credit_card", "debit_card", "pix", "boleto"]
             )
         ]
         
