@@ -9,6 +9,7 @@ from .tools import (
 from .tools.subscription_management import subscription_management_tool
 from .tools.renewal_orchestration import renewal_orchestration_tool
 from .tools.plan_management import plan_management_tool
+from .tools.subscription_notification_tool import subscription_notification_tool
 
 # Import enterprise tools if available
 try:
@@ -27,7 +28,8 @@ if bemobi_tool is not None:
 tools_list.extend([
     subscription_management_tool,
     renewal_orchestration_tool,
-    plan_management_tool
+    plan_management_tool,
+    subscription_notification_tool
 ])
 
 # Add enterprise tools if available

@@ -7,7 +7,6 @@ the Agent Payments Protocol (AP2) for secure WhatsApp transactions.
 
 import os
 import sys
-from typing import Dict, Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -16,13 +15,29 @@ from fastapi.responses import JSONResponse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from orchestrator.agent import orchestrator_agent
-from orchestrator.tools import process_user_message, get_user_session
+from orchestrator.tools import process_user_message, get_user_session, get_session_stats, cleanup_old_sessions
 
-# Load environment variables
+# Import notification API
+from notification_api import app as notification_app
+
+# Load environment variables (supports operator-specific .env files)
 load_dotenv()
+
+# Initialize operator-specific configuration
+OPERATOR_NAME = os.getenv("OPERATOR_NAME", "DEMO")
+OPERATOR_DISPLAY_NAME = os.getenv("OPERATOR_DISPLAY_NAME", "Demo Operator")
+SOFIA_AGENT_NAME = os.getenv("SOFIA_AGENT_NAME", f"sofIA {OPERATOR_NAME} Payment Agent")
+BRAND_COLOR = os.getenv("BRAND_COLOR", "#6366f1")
+
+print(f"🏷️  Initializing WHITE-LABEL sofIA for: {OPERATOR_DISPLAY_NAME}")
+print(f"🤖 Agent: {SOFIA_AGENT_NAME}")
+print(f"🎨 Brand Color: {BRAND_COLOR}")
 
 # Create FastAPI app for WhatsApp Web.js integration
 app = FastAPI(title="sofIA WhatsApp Payment Agent", version="1.0.0")
+
+# Mount notification API
+app.mount("/notifications", notification_app)
 
 # The orchestrator handles everything now
 
@@ -41,15 +56,6 @@ async def process_whatsapp_message(request: Request):
             )
 
         # Process through orchestrator agent (True A2A)
-        context = f"""
-User message: {message}
-User ID: {user_id}
-
-Analyze this message and respond naturally. If you detect purchase intent,
-start your response with [PAYMENT_INTENT].
-If the user is confirming a purchase, start with [PAYMENT_CONFIRM].
-If the user is canceling a purchase, start with [PAYMENT_CANCEL].
-"""
 
         try:
             # Try to use orchestrator agent properly
@@ -76,18 +82,21 @@ If the user is canceling a purchase, start with [PAYMENT_CANCEL].
                 context_messages = "\n".join([f"User: {msg['message']}" for msg in recent_history[:-1]])  # Exclude current message
                 context_messages = f"\nRecent conversation:\n{context_messages}\n"
 
-            # Create prompt for intent detection with full context
-            intent_prompt = f"""You are sofIA, an AI payment assistant. Analyze this user message and respond naturally while maintaining conversation context.
+            # Create prompt for intent detection with full context - operator-specific
+            intent_prompt = f"""You are {SOFIA_AGENT_NAME}, the AI payment assistant for {OPERATOR_DISPLAY_NAME}. You help customers with {OPERATOR_NAME} subscription plans and payments. Analyze this user message and respond naturally while maintaining conversation context.
 
 {context_messages}Current user message: "{message}"
 Current conversation state: {current_state}
+Your operator: {OPERATOR_NAME}
 
 Instructions:
+- You work exclusively for {OPERATOR_DISPLAY_NAME} and only offer {OPERATOR_NAME} plans and services
 - If you detect purchase intent (wants to buy something) and state is 'idle', start your response with [PAYMENT_INTENT]
 - If user is confirming a purchase (yes/sim/ok/confirm) and state is 'cart_created', start with [PAYMENT_CONFIRM]
 - If user is canceling a purchase (no/não/cancel) and state is 'cart_created', start with [PAYMENT_CANCEL]
 - Remember the conversation context and respond accordingly
 - Be helpful and maintain continuity with previous messages
+- Always mention you're the {OPERATOR_NAME} assistant when introducing yourself
 
 Respond naturally in Portuguese or English as appropriate."""
 
@@ -96,10 +105,10 @@ Respond naturally in Portuguese or English as appropriate."""
             agent_reply = response.text if response.text else "Hello! I'm sofIA, your AI payment assistant. How can I help you today?"
 
             print(f"🤖 Agent Response: {agent_reply}")
-            print(f"🔧 Processing with orchestrator...")
+            print("🔧 Processing with orchestrator...")
 
-            # Use orchestrator tool to handle A2A coordination
-            result = await process_user_message(message, user_id, agent_reply)
+            # Use orchestrator tool to handle A2A coordination with operator context
+            result = await process_user_message(message, user_id, agent_reply, operator_name=OPERATOR_NAME)
             reply = result.get("reply", "Sorry, I couldn't process your message.")
 
             print(f"✅ Final Reply: {reply[:100]}{'...' if len(reply) > 100 else ''}")
@@ -119,12 +128,28 @@ Respond naturally in Portuguese or English as appropriate."""
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint with session statistics."""
+    session_stats = get_session_stats()
     return {
         "status": "healthy",
         "service": "sofIA WhatsApp Payment Agent",
-        "ap2_ready": True
+        "ap2_ready": True,
+        "active_sessions": session_stats["active_sessions"],
+        "active_locks": session_stats["active_locks"]
     }
+
+
+@app.get("/sessions")
+async def get_sessions():
+    """Get session statistics for monitoring."""
+    return get_session_stats()
+
+
+@app.post("/cleanup-sessions")
+async def cleanup_sessions():
+    """Manually trigger session cleanup."""
+    await cleanup_old_sessions()
+    return {"message": "Session cleanup completed", "stats": get_session_stats()}
 
 def main():
     """Main application entry point."""

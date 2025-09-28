@@ -215,6 +215,8 @@ class SofiaWhatsAppBridge {
 
     async processThroughSofia(messageData) {
         try {
+            console.log(`🔄 Processing message from ${messageData.from} (${messageData.id})`);
+            
             // Send message to sofIA Python agent for processing
             const response = await axios.post(`${this.sofiaApiUrl}/process-whatsapp-message`, {
                 user_id: messageData.from,
@@ -222,32 +224,42 @@ class SofiaWhatsAppBridge {
                 timestamp: messageData.timestamp,
                 message_id: messageData.id
             }, {
-                timeout: 100000 // 100 second timeout
+                timeout: 100000, // 100 second timeout
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Request-ID': messageData.id
+                }
             });
 
             if (response.data && response.data.reply) {
                 // Send response back through WhatsApp
                 await this.whatsappClient.sendMessage(messageData.from, response.data.reply);
 
-                console.log(`📤 Sent reply to ${messageData.from}: ${response.data.reply}`);
+                console.log(`📤 Sent reply to ${messageData.from}: ${response.data.reply.substring(0, 100)}...`);
 
                 // Emit reply for monitoring
                 this.io.emit('message-sent', {
                     to: messageData.from,
                     message: response.data.reply,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    request_id: messageData.id
                 });
+            } else {
+                console.warn(`⚠️ No reply received for message ${messageData.id}`);
             }
 
         } catch (error) {
-            console.error('Error processing through sofIA:', error.message);
+            console.error(`❌ Error processing message ${messageData.id} from ${messageData.from}:`, error.message);
 
-            // Send error message to user
+            // Send error message to user with more context
             try {
-                await this.whatsappClient.sendMessage(
-                    messageData.from,
-                    "Sorry, I'm having trouble processing your request right now. Please try again later."
-                );
+                const errorMessage = error.response?.status === 429 
+                    ? "I'm receiving many messages right now. Please wait a moment and try again."
+                    : "Sorry, I'm having trouble processing your request right now. Please try again later.";
+                    
+                await this.whatsappClient.sendMessage(messageData.from, errorMessage);
+                
+                console.log(`📤 Sent error message to ${messageData.from}`);
             } catch (sendError) {
                 console.error('Error sending error message:', sendError);
             }

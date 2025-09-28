@@ -3,6 +3,8 @@ Bemobi Payment Gateway Tool for sofIA
 
 This tool provides integration with Bemobi payment gateway for processing
 WhatsApp payments through sofIA agent in emerging markets.
+
+Now supports white-label implementation with mock merchants per telecom operator.
 """
 
 import os
@@ -13,6 +15,14 @@ import hmac
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+
+from .mock_bemobi_gateway import (
+    mock_bemobi_gateway,
+    initialize_mock_gateway,
+    get_merchant_for_operator,
+    create_operator_payment_intent,
+    process_operator_payment
+)
 
 
 @dataclass
@@ -152,11 +162,11 @@ class BemobiPaymentProcessor:
 
 
 class BemobiTool:
-    """Tool for handling Bemobi payment gateway operations"""
-    
+    """Tool for handling Bemobi payment gateway operations with white-label support"""
+
     def __init__(self):
         self.name = "bemobi_payment"
-        self.description = "Process payments through Bemobi payment gateway for WhatsApp transactions"
+        self.description = "Process payments through Bemobi payment gateway for WhatsApp transactions with operator-specific credentials"
         self.parameters = {
             "type": "object",
             "properties": {
@@ -164,12 +174,20 @@ class BemobiTool:
                     "type": "string",
                     "enum": [
                         "create_payment_intent",
-                        "process_payment", 
+                        "process_payment",
                         "get_payment_status",
                         "add_merchant",
-                        "get_merchant_info"
+                        "get_merchant_info",
+                        "create_operator_payment",
+                        "get_operator_payment_methods",
+                        "list_available_operators"
                     ],
                     "description": "The Bemobi operation to perform"
+                },
+                "operator_name": {
+                    "type": "string",
+                    "enum": ["VIVO", "CLARO", "OI", "TIM"],
+                    "description": "Telecom operator name for white-label payments"
                 },
                 "merchant_id": {
                     "type": "string",
@@ -193,7 +211,7 @@ class BemobiTool:
                 },
                 "payment_method": {
                     "type": "string",
-                    "enum": ["card", "pix", "boleto", "bank_transfer"],
+                    "enum": ["PIX", "CARD", "BOLETO", "VIVO_WALLET", "CLARO_PAY", "OI_MONEY", "TIM_PAY"],
                     "description": "Payment method"
                 },
                 "payment_data": {
@@ -204,35 +222,30 @@ class BemobiTool:
                     "type": "string",
                     "description": "Payment ID for status check"
                 },
-                "store_name": {
+                "user_id": {
                     "type": "string",
-                    "description": "Store/merchant name"
-                },
-                "region": {
-                    "type": "string",
-                    "enum": ["latam", "africa", "asia"],
-                    "description": "Geographic region"
-                },
-                "api_key": {
-                    "type": "string",
-                    "description": "Merchant API key"
+                    "description": "User ID for payment tracking"
                 }
             },
             "required": ["operation"]
         }
-        
-        # Initialize Bemobi processor
-        bemobi_config = {
-            "api_key": os.getenv("BEMOBI_API_KEY"),
-            "secret_key": os.getenv("BEMOBI_SECRET_KEY"),
-            "base_url": os.getenv("BEMOBI_BASE_URL", "https://api.bemobi.com/v1"),
-            "region": os.getenv("BEMOBI_REGION", "latam")
-        }
-        
-        self.processor = BemobiPaymentProcessor(bemobi_config)
-        
-        # Add default merchants for demo
-        self._add_demo_merchants()
+
+        # Initialize mock gateway instead of real Bemobi processor
+        self.use_mock = os.getenv("BEMOBI_USE_MOCK", "true").lower() == "true"
+
+        if self.use_mock:
+            # Initialize mock gateway
+            self.mock_initialized = False
+        else:
+            # Initialize real Bemobi processor for production
+            bemobi_config = {
+                "api_key": os.getenv("BEMOBI_API_KEY", "demo_api_key"),
+                "secret_key": os.getenv("BEMOBI_SECRET_KEY", "demo_secret"),
+                "base_url": os.getenv("BEMOBI_BASE_URL", "https://api.bemobi.com/v1"),
+                "region": os.getenv("BEMOBI_REGION", "latam")
+            }
+            self.processor = BemobiPaymentProcessor(bemobi_config)
+            self._add_demo_merchants()
     
     def _add_demo_merchants(self):
         """Add demo merchants for testing"""
@@ -266,12 +279,28 @@ class BemobiTool:
         for merchant in demo_merchants:
             self.processor.add_merchant(merchant)
     
+    async def _ensure_mock_initialized(self):
+        """Ensure mock gateway is initialized"""
+        if self.use_mock and not self.mock_initialized:
+            await initialize_mock_gateway()
+            self.mock_initialized = True
+
     async def execute(self, **kwargs) -> Dict[str, Any]:
-        """Execute Bemobi operation"""
+        """Execute Bemobi operation with white-label support"""
         operation = kwargs.get("operation")
-        
+
         try:
-            if operation == "create_payment_intent":
+            # Ensure mock gateway is initialized if using mock
+            if self.use_mock:
+                await self._ensure_mock_initialized()
+
+            if operation == "create_operator_payment":
+                return await self._create_operator_payment(**kwargs)
+            elif operation == "get_operator_payment_methods":
+                return await self._get_operator_payment_methods(**kwargs)
+            elif operation == "list_available_operators":
+                return await self._list_available_operators(**kwargs)
+            elif operation == "create_payment_intent":
                 return await self._create_payment_intent(**kwargs)
             elif operation == "process_payment":
                 return await self._process_payment(**kwargs)
@@ -283,10 +312,63 @@ class BemobiTool:
                 return await self._get_merchant_info(**kwargs)
             else:
                 return {"error": f"Unknown operation: {operation}"}
-                
+
         except Exception as e:
             return {"error": f"Bemobi operation failed: {str(e)}"}
-    
+
+    async def _create_operator_payment(self, operator_name: str, amount: float,
+                                     description: str, user_id: str = None, **kwargs) -> Dict[str, Any]:
+        """Create payment intent for a specific telecom operator"""
+        if self.use_mock:
+            return await create_operator_payment_intent(
+                operator_name=operator_name,
+                amount=amount,
+                description=description,
+                user_id=user_id
+            )
+        else:
+            # For real implementation, you'd look up operator credentials from database
+            return {"error": "Real Bemobi integration not implemented for operators"}
+
+    async def _get_operator_payment_methods(self, operator_name: str, **kwargs) -> Dict[str, Any]:
+        """Get payment methods available for a specific operator"""
+        if self.use_mock:
+            merchant = await get_merchant_for_operator(operator_name)
+            if not merchant:
+                return {
+                    "error": f"No merchant configuration found for operator {operator_name}",
+                    "available_operators": ["VIVO", "CLARO", "OI", "TIM"]
+                }
+
+            return await mock_bemobi_gateway.get_payment_methods(merchant.mock_merchant_id)
+        else:
+            # For real implementation
+            return {"error": "Real Bemobi integration not implemented for operators"}
+
+    async def _list_available_operators(self, **kwargs) -> Dict[str, Any]:
+        """List all available operators with their configurations"""
+        if self.use_mock:
+            operators = []
+            for operator_name in ["VIVO", "CLARO", "OI", "TIM"]:
+                merchant = await get_merchant_for_operator(operator_name)
+                if merchant:
+                    operators.append({
+                        "operator_name": operator_name,
+                        "merchant_id": merchant.mock_merchant_id,
+                        "sofia_agent_id": merchant.sofia_agent_id,
+                        "sofia_agent_name": merchant.sofia_agent_name,
+                        "supported_payment_methods": merchant.supported_payment_methods,
+                        "is_active": merchant.is_active
+                    })
+
+            return {
+                "success": True,
+                "operators": operators,
+                "total_operators": len(operators)
+            }
+        else:
+            return {"error": "Real Bemobi integration not implemented for operators"}
+
     async def _create_payment_intent(self, merchant_id: str, amount: float,
                                    currency: str, description: str, **kwargs) -> Dict[str, Any]:
         """Create payment intent with Bemobi"""

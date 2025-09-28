@@ -1,15 +1,25 @@
 """
 Orchestration Tool - Simple functions for conversation flow and A2A coordination
+Now supports white-label merchant detection and routing
 """
 
 from typing import Dict, Any, Optional
 from datetime import datetime
 import asyncio
+from collections import defaultdict
 
-
-# Global session storage (in production, use proper session management)
+# Thread-safe session storage with proper locking
 _user_sessions = {}
+_session_locks = defaultdict(asyncio.Lock)
 _mock_payment_processor = {}
+
+# White-label operator detection
+OPERATOR_KEYWORDS = {
+    "VIVO": ["vivo", "viv0", "purple", "roxo"],
+    "CLARO": ["claro", "red", "vermelho", "america", "américa"],
+    "OI": ["oi", "yellow", "amarelo"],
+    "TIM": ["tim", "blue", "azul", "italia", "itália"]
+}
 
 # Shared AP2 agent instance and services for consistent state across requests
 _ap2_agent = None
@@ -17,58 +27,62 @@ _ap2_authenticator = None
 _agent_registry = None
 _merchant_service = None
 _user_credential_service = None
+_ap2_initialization_lock = asyncio.Lock()
 
 
-def _get_ap2_agent():
-    """Get or create shared AP2 agent for payment processing"""
+async def _get_ap2_agent():
+    """Get or create shared AP2 agent for payment processing with thread-safe initialization"""
     global _ap2_agent, _ap2_authenticator, _agent_registry, _merchant_service, _user_credential_service
 
     if _ap2_agent is None:
-        from sofIA.tools.ap2_protocol.ap2_core import AP2PaymentAgent
-        from sofIA.tools.ap2_protocol.ap2_agent_auth import get_ap2_authenticator
-        from sofIA.tools.ap2_protocol.merchant_onboarding import get_merchant_service
-        from sofIA.tools.ap2_protocol.user_credential_service import get_user_credential_service
-        from sofIA.registry.agent_registry import AgentRegistry
+        async with _ap2_initialization_lock:
+            # Double-check pattern to avoid race conditions
+            if _ap2_agent is None:
+                from sofIA.tools.ap2_protocol.ap2_core import AP2PaymentAgent
+                from sofIA.tools.ap2_protocol.ap2_agent_auth import get_ap2_authenticator
+                from sofIA.tools.ap2_protocol.merchant_onboarding import get_merchant_service
+                from sofIA.tools.ap2_protocol.user_credential_service import get_user_credential_service
+                from sofIA.registry.agent_registry import AgentRegistry
 
-        # Initialize agent registry
-        _agent_registry = AgentRegistry("sofia-main-registry")
+                # Initialize agent registry
+                _agent_registry = AgentRegistry("sofia-main-registry")
 
-        # Initialize merchant service
-        _merchant_service = get_merchant_service(_agent_registry)
+                # Initialize merchant service
+                _merchant_service = get_merchant_service(_agent_registry)
 
-        # Initialize user credential service
-        _user_credential_service = get_user_credential_service()
+                # Initialize user credential service
+                _user_credential_service = get_user_credential_service()
 
-        # Create AP2 payment agent
-        _ap2_agent = AP2PaymentAgent(
-            agent_id="sofia_orchestrator",
-            merchant_id="demo_merchant"
-        )
+                # Create AP2 payment agent
+                _ap2_agent = AP2PaymentAgent(
+                    agent_id="sofia_orchestrator",
+                    merchant_id="demo_merchant"
+                )
 
-        # Initialize AP2 authenticator with proper agent-to-agent auth
-        _ap2_authenticator = get_ap2_authenticator(_agent_registry, _ap2_agent)
+                # Initialize AP2 authenticator with proper agent-to-agent auth
+                _ap2_authenticator = get_ap2_authenticator(_agent_registry, _ap2_agent)
 
-        # Demo merchants will be onboarded on first transaction
-        print("🏢 AP2 services initialized - merchants will be onboarded on demand")
+                # Demo merchants will be onboarded on first transaction
+                print("🏢 AP2 services initialized - merchants will be onboarded on demand")
 
     return _ap2_agent
 
 
-def _get_ap2_authenticator():
+async def _get_ap2_authenticator():
     """Get the AP2 authenticator for agent-to-agent authentication"""
-    _get_ap2_agent()  # Ensure everything is initialized
+    await _get_ap2_agent()  # Ensure everything is initialized
     return _ap2_authenticator
 
 
-def _get_merchant_service():
+async def _get_merchant_service():
     """Get the merchant onboarding service"""
-    _get_ap2_agent()  # Ensure everything is initialized
+    await _get_ap2_agent()  # Ensure everything is initialized
     return _merchant_service
 
 
-def _get_user_credential_service():
+async def _get_user_credential_service():
     """Get the user credential service"""
-    _get_ap2_agent()  # Ensure everything is initialized
+    await _get_ap2_agent()  # Ensure everything is initialized
     return _user_credential_service
 
 
@@ -81,41 +95,50 @@ async def _onboard_demo_merchants():
         print(f"Warning: Demo merchant onboarding failed: {e}")
 
 
-async def process_user_message(message: str, user_id: str, agent_reply: str) -> Dict[str, Any]:
-    """Process user message and coordinate A2A communication"""
+async def process_user_message(message: str, user_id: str, agent_reply: str, operator_name: str = "DEMO") -> Dict[str, Any]:
+    """Process user message and coordinate A2A communication with thread-safe session management"""
 
-    # Initialize user session
-    if user_id not in _user_sessions:
-        _user_sessions[user_id] = {
-            "conversation_history": [],
-            "current_intent": None,
-            "payment_state": "idle"
+    # Get or create session lock for this user
+    session_lock = _session_locks[user_id]
+    
+    async with session_lock:
+        # Initialize user session with operator context
+        if user_id not in _user_sessions:
+            _user_sessions[user_id] = {
+                "conversation_history": [],
+                "current_intent": None,
+                "payment_state": "idle",
+                "operator_name": operator_name,
+                "last_activity": datetime.now().isoformat()
+            }
+
+        session = _user_sessions[user_id]
+        session["conversation_history"].append({"role": "user", "message": message})
+        session["operator_name"] = operator_name  # Update operator context
+        session["last_activity"] = datetime.now().isoformat()
+
+        print(f"🔄 State: {session['payment_state']} | Operator: {operator_name} | History: {len(session['conversation_history'])} messages | User: {user_id[-8:]}")
+
+        # Check if agent detected specific intents and coordinate accordingly
+        coordination_result = await _handle_agent_intent(agent_reply, message, user_id, session)
+
+        session_updates = {}
+        if coordination_result:
+            reply = coordination_result["reply"]
+            session_updates = coordination_result.get("session_updates", {})
+            session.update(session_updates)
+        else:
+            reply = agent_reply
+
+        session["conversation_history"].append({"role": "assistant", "message": reply})
+        session["last_activity"] = datetime.now().isoformat()
+
+        return {
+            "reply": reply,
+            "user_id": user_id,
+            "session_state": session["payment_state"],
+            "session_updates": session_updates
         }
-
-    session = _user_sessions[user_id]
-    session["conversation_history"].append({"role": "user", "message": message})
-
-    print(f"🔄 State: {session['payment_state']} | History: {len(session['conversation_history'])} messages")
-
-    # Check if agent detected specific intents and coordinate accordingly
-    coordination_result = await _handle_agent_intent(agent_reply, message, user_id, session)
-
-    session_updates = {}
-    if coordination_result:
-        reply = coordination_result["reply"]
-        session_updates = coordination_result.get("session_updates", {})
-        session.update(session_updates)
-    else:
-        reply = agent_reply
-
-    session["conversation_history"].append({"role": "assistant", "message": reply})
-
-    return {
-        "reply": reply,
-        "user_id": user_id,
-        "session_state": session["payment_state"],
-        "session_updates": session_updates
-    }
 
 
 async def _handle_agent_intent(agent_reply: str, message: str, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
@@ -124,7 +147,7 @@ async def _handle_agent_intent(agent_reply: str, message: str, user_id: str, ses
     # Check if agent detected payment intent
     if "[PAYMENT_INTENT]" in agent_reply and session["payment_state"] == "idle":
         print("💳 Payment Intent Detected → Coordinating with AP2 agent")
-        return _create_payment_intent(message, user_id, session)
+        return await _create_payment_intent(message, user_id, session)
 
     # Check if agent detected payment confirmation
     elif "[PAYMENT_CONFIRM]" in agent_reply and session["payment_state"] == "cart_created":
@@ -135,7 +158,6 @@ async def _handle_agent_intent(agent_reply: str, message: str, user_id: str, ses
     elif session["payment_state"] in ["credential_collection", "payment_method_requested"]:
         print("🔐 Processing credentials with enhanced AP2 flow")
         # Handle async function call for enhanced credential processing
-        import asyncio
         try:
             return await _process_enhanced_credentials(message, user_id, session)
         except Exception as e:
@@ -149,16 +171,26 @@ async def _handle_agent_intent(agent_reply: str, message: str, user_id: str, ses
     elif session["payment_state"] == "awaiting_amount" and _looks_like_boleto(message):
         print("🧾 Boleto code detected → Using structured parsing (avoiding AI hallucination)")
         return _process_boleto_code(message, user_id, session)
+    
+    # Check if user is selecting a subscription plan
+    elif session["payment_state"] == "plan_selection":
+        print("📱 Plan selection detected → Processing plan choice")
+        return await _process_plan_selection(message, user_id, session)
 
     return None
 
 
-def _create_payment_intent(message: str, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
+async def _create_payment_intent(message: str, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
     """Create AP2 Intent Mandate and prepare Cart for user confirmation"""
 
-    # Extract product info using AI
-    product_info = _extract_product_info(message)
+    # Extract product info using AI with operator context
+    operator_name = session.get("operator_name", "DEMO")
+    product_info = _extract_product_info(message, operator_name)
 
+    # Check if this is a subscription plan request
+    if product_info.get('is_subscription'):
+        return await _handle_subscription_request(message, user_id, session, product_info)
+    
     # Check if amount is required but not provided
     if product_info.get('requires_amount') and product_info.get('price', 0) == 0:
         return {
@@ -169,53 +201,52 @@ def _create_payment_intent(message: str, user_id: str, session: Dict[str, Any]) 
             }
         }
 
-    # AP2 Protocol Step 1: Create Intent Mandate
-    try:
-        from sofIA.tools.ap2_protocol.ap2_core import AP2PaymentAgent
-        from sofIA.tools.ap2_protocol.types.payment_request import PaymentItem, PaymentCurrencyAmount
+        # AP2 Protocol Step 1: Create Intent Mandate
+        try:
+            from sofIA.tools.ap2_protocol.types.payment_request import PaymentItem, PaymentCurrencyAmount
 
-        print(f"🤖 sofIA Agent creating Intent Mandate for: {product_info['name']}")
+            print(f"🤖 sofIA Agent creating Intent Mandate for: {product_info['name']}")
 
-        # Get shared AP2 agent for processing
-        ap2_agent = _get_ap2_agent()
+            # Get shared AP2 agent for processing
+            ap2_agent = await _get_ap2_agent()
 
-        # Step 1: Create Intent Mandate (captures user's intent)
-        intent_result = ap2_agent.create_intent_mandate(
-            user_message=message,
-            user_id=user_id,
-            merchants=["sofIA Payment Agent"],
-            max_price=product_info['price'],
-            requires_confirmation=True  # User must confirm cart
-        )
-
-        if not intent_result:
-            raise Exception("Failed to create Intent Mandate")
-
-        intent_id = next(iter(ap2_agent.active_intents.keys()), "unknown")
-        print(f"✅ Intent Mandate created: {intent_id}")
-
-        # Step 2: Agent creates Cart Mandate with specific items (per AP2 protocol)
-        payment_item = PaymentItem(
-            label=product_info['name'],
-            amount=PaymentCurrencyAmount(
-                value=product_info['price'],
-                currency=product_info['currency']
+            # Step 1: Create Intent Mandate (captures user's intent)
+            intent_result = ap2_agent.create_intent_mandate(
+                user_message=message,
+                user_id=user_id,
+                merchants=["sofIA Payment Agent"],
+                max_price=product_info['price'],
+                requires_confirmation=True  # User must confirm cart
             )
-        )
 
-        cart_result = ap2_agent.create_cart_mandate(
-            intent_id=intent_id,
-            items=[payment_item]
-        )
+            if not intent_result:
+                raise Exception("Failed to create Intent Mandate")
 
-        if not cart_result:
-            raise Exception("Failed to create Cart Mandate")
+            intent_id = next(iter(ap2_agent.active_intents.keys()), "unknown")
+            print(f"✅ Intent Mandate created: {intent_id}")
 
-        cart_id = next(iter(ap2_agent.active_carts.keys()), "unknown")
-        print(f"✅ Cart Mandate created: {cart_id}")
+            # Step 2: Agent creates Cart Mandate with specific items (per AP2 protocol)
+            payment_item = PaymentItem(
+                label=product_info['name'],
+                amount=PaymentCurrencyAmount(
+                    value=product_info['price'],
+                    currency=product_info['currency']
+                )
+            )
 
-        # Present cart to user for confirmation (AP2 protocol requirement)
-        reply = f"""🛒 **Carrinho preparado pela sofIA**
+            cart_result = ap2_agent.create_cart_mandate(
+                intent_id=intent_id,
+                items=[payment_item]
+            )
+
+            if not cart_result:
+                raise Exception("Failed to create Cart Mandate")
+
+            cart_id = next(iter(ap2_agent.active_carts.keys()), "unknown")
+            print(f"✅ Cart Mandate created: {cart_id}")
+
+            # Present cart to user for confirmation (AP2 protocol requirement)
+            reply = f"""🛒 **Carrinho preparado pela sofIA**
 
 **{product_info['name']}**
 💰 {product_info['currency']} {product_info['price']:.2f}
@@ -227,25 +258,232 @@ Este carrinho foi criado com base na sua solicitação. A sofIA pode processar o
 
 **Confirmar compra?** (Responda 'sim' ou 'não')"""
 
+            return {
+                "reply": reply,
+                "session_updates": {
+                    "payment_state": "cart_created",
+                    "intent_id": intent_id,
+                    "cart_id": cart_id,
+                    "product_info": product_info
+                }
+            }
+
+        except Exception as e:
+            print(f"AP2 Intent/Cart creation failed: {e}")
+            return {
+                "reply": f"Desculpe, houve um problema ao preparar o pagamento para {product_info['name']}. Tente novamente.",
+                "session_updates": {"payment_state": "idle"}
+            }
+
+
+async def _handle_subscription_request(message: str, user_id: str, session: Dict[str, Any], product_info: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle subscription plan selection for the current operator"""
+    
+    operator_name = session.get("operator_name", "DEMO")
+    
+    try:
+        from sofIA.tools.operator_subscription_manager import get_merchant_subscription_plans
+        
+        # Get available plans for this operator
+        plans_result = await get_merchant_subscription_plans(operator_name)
+        
+        if "error" in plans_result:
+            return {
+                "reply": f"❌ Erro ao carregar planos {operator_name}. Tente novamente.",
+                "session_updates": {"payment_state": "idle"}
+            }
+        
+        plans = plans_result["plans"]
+        
+        # Create plan selection message
+        reply = f"""📱 **Planos {operator_name} Disponíveis**
+        
+Escolha um dos planos abaixo:
+
+"""
+        
+        for i, plan in enumerate(plans, 1):
+            data_text = f"{plan['data_limit_gb']}GB" if plan['data_limit_gb'] else "Ilimitado"
+            voice_text = plan['voice_minutes'] if plan['voice_minutes'] != "Ilimitado" else "Ilimitado"
+            sms_text = plan['sms_count'] if plan['sms_count'] != "Ilimitado" else "Ilimitado"
+            
+            reply += f"""**{i}. {plan['name']}**
+💰 R$ {plan['price_brl']:.2f}/mês
+📊 {data_text} de internet
+📞 {voice_text} minutos
+💬 {sms_text} SMS
+📝 {plan['description']}
+
+"""
+        
+        reply += f"""**Para contratar:** Digite o número do plano (ex: 1, 2, 3, etc.)
+**Para mais informações:** Digite 'info [número]' (ex: info 2)"""
+
         return {
             "reply": reply,
             "session_updates": {
-                "payment_state": "cart_created",
-                "intent_id": intent_id,
-                "cart_id": cart_id,
+                "payment_state": "plan_selection",
+                "available_plans": plans,
                 "product_info": product_info
             }
         }
-
+        
     except Exception as e:
-        print(f"AP2 Intent/Cart creation failed: {e}")
+        print(f"Subscription request handling failed: {e}")
         return {
-            "reply": f"Desculpe, houve um problema ao preparar o pagamento para {product_info['name']}. Tente novamente.",
+            "reply": f"❌ Erro ao processar solicitação de planos {operator_name}. Tente novamente.",
             "session_updates": {"payment_state": "idle"}
         }
 
 
-def _process_payment(user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
+async def _process_plan_selection(message: str, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
+    """Process user's plan selection"""
+    
+    try:
+        available_plans = session.get("available_plans", [])
+        operator_name = session.get("operator_name", "DEMO")
+        
+        # Check if user wants more info about a plan
+        if message.lower().startswith("info"):
+            parts = message.split()
+            if len(parts) >= 2 and parts[1].isdigit():
+                plan_index = int(parts[1]) - 1
+                if 0 <= plan_index < len(available_plans):
+                    plan = available_plans[plan_index]
+                    
+                    features_text = "\n".join([f"✓ {feature}" for feature in plan['features'].keys()])
+                    
+                    reply = f"""📱 **{plan['name']} - Detalhes Completos**
+
+💰 **Preço:** R$ {plan['price_brl']:.2f}/mês
+📊 **Internet:** {plan['data_limit_gb']}GB
+📞 **Ligações:** {plan['voice_minutes']}
+💬 **SMS:** {plan['sms_count']}
+
+**Recursos incluídos:**
+{features_text}
+
+**Para contratar este plano:** Digite '{parts[1]}'
+**Para ver todos os planos:** Digite 'voltar'"""
+
+                    return {
+                        "reply": reply,
+                        "session_updates": {}
+                    }
+        
+        # Check if user wants to go back
+        if message.lower() in ["voltar", "back", "todos"]:
+            return await _handle_subscription_request("", user_id, session, session.get("product_info", {}))
+        
+        # Check if user selected a plan number
+        if message.strip().isdigit():
+            plan_index = int(message.strip()) - 1
+            if 0 <= plan_index < len(available_plans):
+                selected_plan = available_plans[plan_index]
+                
+                # Create product info for the selected plan
+                product_info = {
+                    "name": selected_plan['name'],
+                    "price": selected_plan['price_brl'],
+                    "currency": "BRL",
+                    "operator": operator_name,
+                    "is_subscription": True,
+                    "plan_details": selected_plan
+                }
+                
+                # Create AP2 payment intent for the selected plan
+                try:
+                    from sofIA.tools.ap2_protocol.types.payment_request import PaymentItem, PaymentCurrencyAmount
+
+                    print(f"🤖 sofIA Agent creating Intent Mandate for: {selected_plan['name']}")
+
+                    # Get shared AP2 agent for processing
+                    ap2_agent = await _get_ap2_agent()
+
+                    # Step 1: Create Intent Mandate (captures user's intent)
+                    intent_result = ap2_agent.create_intent_mandate(
+                        user_message=f"Contratar plano {selected_plan['name']}",
+                        user_id=user_id,
+                        merchants=[f"sofIA {operator_name} Payment Agent"],
+                        max_price=selected_plan['price_brl'],
+                        requires_confirmation=True
+                    )
+
+                    if not intent_result:
+                        raise Exception("Failed to create Intent Mandate")
+
+                    intent_id = next(iter(ap2_agent.active_intents.keys()), "unknown")
+                    print(f"✅ Intent Mandate created: {intent_id}")
+
+                    # Step 2: Agent creates Cart Mandate with specific items
+                    payment_item = PaymentItem(
+                        label=selected_plan['name'],
+                        amount=PaymentCurrencyAmount(
+                            value=selected_plan['price_brl'],
+                            currency="BRL"
+                        )
+                    )
+
+                    cart_result = ap2_agent.create_cart_mandate(
+                        intent_id=intent_id,
+                        items=[payment_item]
+                    )
+
+                    if not cart_result:
+                        raise Exception("Failed to create Cart Mandate")
+
+                    cart_id = next(iter(ap2_agent.active_carts.keys()), "unknown")
+                    print(f"✅ Cart Mandate created: {cart_id}")
+
+                    # Present cart to user for confirmation
+                    reply = f"""🛒 **Plano Selecionado - {operator_name}**
+
+**{selected_plan['name']}**
+💰 R$ {selected_plan['price_brl']:.2f}/mês
+📊 {selected_plan['data_limit_gb']}GB de internet
+📞 {selected_plan['voice_minutes']}
+💬 {selected_plan['sms_count']}
+
+🔐 Intent ID: `{intent_id}`
+📋 Cart ID: `{cart_id}`
+
+Este plano foi preparado pela sofIA {operator_name}. 
+A confirmação processará o pagamento automaticamente.
+
+**Confirmar contratação?** (Responda 'sim' ou 'não')"""
+
+                    return {
+                        "reply": reply,
+                        "session_updates": {
+                            "payment_state": "cart_created",
+                            "intent_id": intent_id,
+                            "cart_id": cart_id,
+                            "product_info": product_info
+                        }
+                    }
+
+                except Exception as e:
+                    print(f"AP2 plan selection processing failed: {e}")
+                    return {
+                        "reply": f"❌ Erro ao processar seleção do plano {selected_plan['name']}. Tente novamente.",
+                        "session_updates": {"payment_state": "plan_selection"}
+                    }
+        
+        # Invalid selection
+        return {
+            "reply": f"❌ Seleção inválida. Digite um número de 1 a {len(available_plans)} ou 'info [número]' para mais detalhes.",
+            "session_updates": {}
+        }
+        
+    except Exception as e:
+        print(f"Plan selection processing failed: {e}")
+        return {
+            "reply": "❌ Erro ao processar seleção de plano. Tente novamente.",
+            "session_updates": {"payment_state": "idle"}
+        }
+
+
+async def _process_payment(user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
     """Complete payment after user confirmation (AP2 Protocol Step 3)"""
 
     try:
@@ -258,7 +496,7 @@ def _process_payment(user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
         print("🤖 sofIA Agent executing payment after user confirmation")
 
         # Get shared AP2 agent for payment processing
-        ap2_agent = _get_ap2_agent()
+        ap2_agent = await _get_ap2_agent()
 
         # Create payment response (agent handles payment execution)
         payment_response = PaymentResponse(
@@ -317,7 +555,7 @@ async def _request_payment_method(user_id: str, session: Dict[str, Any]) -> Dict
         product_info = session["product_info"]
 
         # Get user credential service for enhanced flow
-        user_service = _get_user_credential_service()
+        user_service = await _get_user_credential_service()
 
         # Initiate credential flow based on amount and user
         credential_flow = await user_service.initiate_whatsapp_credential_flow(
@@ -381,8 +619,8 @@ async def _process_enhanced_credentials(message: str, user_id: str, session: Dic
     """Process user credentials with enhanced AP2 flow including KYC and merchant onboarding"""
 
     try:
-        user_service = _get_user_credential_service()
-        merchant_service = _get_merchant_service()
+        user_service = await _get_user_credential_service()
+        merchant_service = await _get_merchant_service()
 
         # Step 1: Check if this is KYC data
         if message.upper().startswith("DADOS"):
@@ -462,12 +700,12 @@ async def _process_payment_with_enhanced_credentials(
         print(f"🔐 Starting enhanced AP2 payment with {payment_method}")
 
         # Step 1: Onboard BEMOBI telecom operators if not done
-        merchant_service = _get_merchant_service()
+        merchant_service = await _get_merchant_service()
         telecom_merchants = await merchant_service.onboard_bemobi_telecom_operators()
         print(f"🏢 Verified {len(telecom_merchants)} telecom operator merchants")
 
         # Step 2: Authenticate transaction with proper merchant
-        ap2_authenticator = _get_ap2_authenticator()
+        ap2_authenticator = await _get_ap2_authenticator()
         transaction_context = await ap2_authenticator.authenticate_transaction(
             merchant_id="vivo_brasil",  # Use real telecom operator
             payment_method=payment_method,
@@ -487,7 +725,7 @@ async def _process_payment_with_enhanced_credentials(
         print(f"   Receiver Agent: {transaction_context.receiver_agent.agent_id}")
 
         # Step 3: Execute payment with full AP2 compliance
-        ap2_agent = _get_ap2_agent()
+        ap2_agent = await _get_ap2_agent()
 
         # Enhanced payment response with credential verification
         from sofIA.tools.ap2_protocol.types.payment_request import PaymentResponse
@@ -608,7 +846,7 @@ async def _process_payment_with_credentials(message: str, user_id: str, session:
         print(f"🔐 Processing AP2 payment with {payment_credentials['method']} credentials")
 
         # Step 1: Authenticate the transaction with proper agent-to-agent authentication
-        ap2_authenticator = _get_ap2_authenticator()
+        ap2_authenticator = await _get_ap2_authenticator()
 
         transaction_context = await ap2_authenticator.authenticate_transaction(
             merchant_id="demo_merchant",
@@ -629,7 +867,7 @@ async def _process_payment_with_credentials(message: str, user_id: str, session:
         print(f"   Receiver Agent: {transaction_context.receiver_agent.agent_id}")
 
         # Step 2: Execute payment with authenticated context
-        ap2_agent = _get_ap2_agent()
+        ap2_agent = await _get_ap2_agent()
 
         # Create payment response with user credentials and AP2 authentication
         from sofIA.tools.ap2_protocol.types.payment_request import PaymentResponse
@@ -750,8 +988,8 @@ def _parse_payment_credentials(message: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _extract_product_info(message: str) -> Dict[str, Any]:
-    """Extract product information from message using AI"""
+def _extract_product_info(message: str, operator_name: str = "DEMO") -> Dict[str, Any]:
+    """Extract product information from message using AI with operator-specific context"""
     try:
         import google.generativeai as genai
         import os
@@ -760,27 +998,35 @@ def _extract_product_info(message: str) -> Dict[str, Any]:
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
         model = genai.GenerativeModel('gemini-2.5-flash')
 
-        # Create prompt for product extraction
+        # Get operator-specific plans for context (simplified for sync context)
+        available_plans = []
+
+        # Create operator-specific prompt for product extraction
         extraction_prompt = f"""Analyze this user message and extract what they want to buy/pay for.
 
 User message: "{message}"
+Operator: {operator_name}
 
-Based on the message, determine:
+Based on the message and the operator context, determine:
 1. What product/service they want
 2. Appropriate price in BRL
 3. Product name
 
-Common examples:
+{operator_name} Available Plans:
+{chr(10).join([f"- {plan['name']}: R$ {plan['price_brl']:.2f} ({plan['description']})" for plan in available_plans[:3]])}
+
+Common examples for {operator_name}:
+- "contratar plano" = Subscribe to a mobile plan
+- "mudar de plano" = Change mobile plan
+- "upgrade plano" = Upgrade mobile plan
 - "enviar um pix" = Transfer money via PIX (amount should be asked)
-- "comprar café" = Coffee (~R$ 8-15)
-- "pagar almoço" = Lunch (~R$ 25-35)
-- "comprar celular" = Phone (~R$ 800-2000)
 - "pagar conta" = Bill payment (amount varies)
 
 Respond in this exact JSON format:
-{{"name": "Product Name", "price": 0.00, "currency": "BRL", "requires_amount": true/false}}
+{{"name": "Product Name", "price": 0.00, "currency": "BRL", "requires_amount": true/false, "is_subscription": true/false}}
 
-If they didn't specify an amount and it's needed (like PIX transfer), set requires_amount to true and price to 0.00."""
+If they didn't specify an amount and it's needed (like PIX transfer), set requires_amount to true and price to 0.00.
+If it's a subscription plan, set is_subscription to true."""
 
         # Get response from Gemini
         response = model.generate_content(extraction_prompt)
@@ -802,6 +1048,8 @@ If they didn't specify an amount and it's needed (like PIX transfer), set requir
                 if not all(key in product_info for key in ["name", "price", "currency"]):
                     raise ValueError("Missing required fields")
 
+                # Add operator context
+                product_info["operator"] = operator_name
                 return product_info
 
             except (json.JSONDecodeError, ValueError) as e:
@@ -811,16 +1059,18 @@ If they didn't specify an amount and it's needed (like PIX transfer), set requir
     except Exception as e:
         print(f"AI product extraction failed: {e}")
 
-    # Fallback for common patterns
+    # Fallback for common patterns with operator context
     message_lower = message.lower()
     if "pix" in message_lower:
-        return {"name": "Transferência PIX", "price": 0.00, "currency": "BRL", "requires_amount": True}
+        return {"name": f"{operator_name} Transferência PIX", "price": 0.00, "currency": "BRL", "requires_amount": True, "operator": operator_name}
+    elif any(word in message_lower for word in ["plano", "plan", "contratar"]):
+        return {"name": f"{operator_name} Plano", "price": 0.00, "currency": "BRL", "requires_amount": True, "is_subscription": True, "operator": operator_name}
     elif any(word in message_lower for word in ["café", "coffee"]):
-        return {"name": "Café", "price": 12.00, "currency": "BRL", "requires_amount": False}
+        return {"name": "Café", "price": 12.00, "currency": "BRL", "requires_amount": False, "operator": operator_name}
     elif any(word in message_lower for word in ["almoço", "lunch"]):
-        return {"name": "Almoço", "price": 28.00, "currency": "BRL", "requires_amount": False}
+        return {"name": "Almoço", "price": 28.00, "currency": "BRL", "requires_amount": False, "operator": operator_name}
 
-    return {"name": "Serviço", "price": 0.00, "currency": "BRL", "requires_amount": True}
+    return {"name": f"{operator_name} Serviço", "price": 0.00, "currency": "BRL", "requires_amount": True, "operator": operator_name}
 
 
 
@@ -828,6 +1078,38 @@ If they didn't specify an amount and it's needed (like PIX transfer), set requir
 def get_user_session(user_id: str) -> Dict[str, Any]:
     """Get user session information"""
     return _user_sessions.get(user_id, {})
+
+
+async def cleanup_old_sessions(max_age_hours: int = 24):
+    """Clean up old user sessions to prevent memory leaks"""
+    from datetime import datetime, timedelta
+    
+    cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+    cutoff_iso = cutoff_time.isoformat()
+    
+    sessions_to_remove = []
+    for user_id, session in _user_sessions.items():
+        last_activity = session.get("last_activity", "")
+        if last_activity and last_activity < cutoff_iso:
+            sessions_to_remove.append(user_id)
+    
+    for user_id in sessions_to_remove:
+        if user_id in _user_sessions:
+            del _user_sessions[user_id]
+        if user_id in _session_locks:
+            del _session_locks[user_id]
+    
+    if sessions_to_remove:
+        print(f"🧹 Cleaned up {len(sessions_to_remove)} old sessions")
+
+
+def get_session_stats() -> Dict[str, Any]:
+    """Get session statistics for monitoring"""
+    return {
+        "active_sessions": len(_user_sessions),
+        "active_locks": len(_session_locks),
+        "session_ids": list(_user_sessions.keys())[:10]  # First 10 for debugging
+    }
 
 
 def _looks_like_boleto(message: str) -> bool:
