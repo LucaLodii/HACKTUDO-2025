@@ -48,10 +48,10 @@ class AP2CredentialCollector:
         payment_methods = []
         
         # Card payment method
-        if "basic-card" in user_methods or region in ["latam", "global"]:
+        if "credit_card" in user_methods or "basic-card" in user_methods or region in ["latam", "global"]:
             payment_methods.append(PaymentMethodInfo(
-                method_type="basic-card",
-                supported_methods="basic-card",
+                method_type="credit_card",
+                supported_methods="credit_card",
                 data={
                     "networks": ["visa", "mastercard", "amex"],
                     "available": True,
@@ -162,7 +162,7 @@ class AP2CredentialCollector:
     ) -> Dict[str, Any]:
         """Collect encrypted credentials for specific payment method"""
         
-        if method == "basic-card":
+        if method == "credit_card" or method == "basic-card":
             return await self._collect_card_credentials(user_id, auth_result)
         elif method == "pix":
             return await self._collect_pix_credentials(user_id, auth_result)
@@ -332,7 +332,10 @@ class AP2CredentialCollector:
         # Find matching credential
         user_credential = None
         for credential in credentials:
-            if credential.claims.get("payment_method") == collection["selected_method"]:
+            method_match = credential.claims.get("payment_method") == collection["selected_method"]
+            # Also allow basic-card to match credit_card for backward compatibility
+            compat_match = (credential.claims.get("payment_method") == "basic-card" and collection["selected_method"] == "credit_card")
+            if method_match or compat_match:
                 user_credential = credential
                 break
         

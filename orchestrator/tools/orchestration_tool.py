@@ -707,7 +707,7 @@ async def _process_enhanced_credentials(message: str, user_id: str, session: Dic
 
         if not credential_result["success"]:
             return {
-                "reply": credential_result["message"],
+                "reply": credential_result.get("error", "Erro na coleta de credenciais"),
                 "session_updates": {}
             }
 
@@ -777,7 +777,7 @@ async def _process_payment_with_enhanced_credentials(
                 "ap2_transaction_id": transaction_context.transaction_id,
                 "sender_agent_id": transaction_context.sender_agent.agent_id,
                 "receiver_agent_id": transaction_context.receiver_agent.agent_id,
-                "credential_id": credential_result["credential_id"],
+                "credential_id": credential_result.get("collection_id", "unknown"),
                 "authentication_proof": "verified",
                 "kyc_verified": True,
                 "merchant_verified": True,
@@ -808,7 +808,7 @@ async def _process_payment_with_enhanced_credentials(
 🆔 Transaction ID: `{transaction_context.transaction_id}`
 🤖 Sender Agent: `{transaction_context.sender_agent.agent_id}`
 🏢 Receiver Agent: `{transaction_context.receiver_agent.agent_id}`
-🎫 Credential ID: `{credential_result["credential_id"][:16]}...`
+🎫 Credential ID: `{credential_result.get("collection_id", "unknown")[:16]}...`
 
 **🏛️ Merchant Verificado:**
 ✓ Operadora: Vivo Brasil
@@ -836,7 +836,7 @@ Posso ajudar com mais alguma coisa?"""
                 "payment_method": payment_method,
                 "sender_agent": transaction_context.sender_agent.agent_id,
                 "receiver_agent": transaction_context.receiver_agent.agent_id,
-                "credential_id": credential_result["credential_id"],
+                "credential_id": credential_result.get("collection_id", "unknown"),
                 "merchant_verified": True,
                 "kyc_verified": True,
                 "protocol_version": "AP2_v1.0"
