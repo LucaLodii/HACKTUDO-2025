@@ -211,11 +211,21 @@ class PaymentProcessor:
         
         try:
             # Use real Mercado Pago integration for PIX payments
-            from ..mercadopago.mercadopago_tool import MercadoPagoPaymentProcessor, MercadoPagoConfig
+            from ..mercadopago.mercadopago_tool import MercadoPagoPaymentProcessor, MercadoPagoConfig, MercadoPagoMerchant
             
             # Initialize Mercado Pago with real credentials
             mp_config = MercadoPagoConfig.from_env()
             mp_processor = MercadoPagoPaymentProcessor(mp_config)
+            
+            # Add claro_brasil merchant for sofIA integration
+            claro_merchant = MercadoPagoMerchant(
+                merchant_id="claro_brasil",
+                store_name="Claro Brasil",
+                currency="BRL",
+                access_token=mp_config.access_token,
+                supported_payment_methods=["credit_card", "debit_card", "pix", "boleto"]
+            )
+            mp_processor.add_merchant(claro_merchant)
             
             # Create real PIX payment through Mercado Pago
             payment_data = {
@@ -289,11 +299,21 @@ class PaymentProcessor:
         
         try:
             # Use real Mercado Pago integration for card payments
-            from ..mercadopago.mercadopago_tool import MercadoPagoPaymentProcessor, MercadoPagoConfig
+            from ..mercadopago.mercadopago_tool import MercadoPagoPaymentProcessor, MercadoPagoConfig, MercadoPagoMerchant
             
             # Initialize Mercado Pago with real credentials
             mp_config = MercadoPagoConfig.from_env()
             mp_processor = MercadoPagoPaymentProcessor(mp_config)
+            
+            # Add claro_brasil merchant for sofIA integration
+            claro_merchant = MercadoPagoMerchant(
+                merchant_id="claro_brasil",
+                store_name="Claro Brasil",
+                currency="BRL",
+                access_token=mp_config.access_token,
+                supported_payment_methods=["credit_card", "debit_card", "pix", "boleto"]
+            )
+            mp_processor.add_merchant(claro_merchant)
             
             # Create real card payment through Mercado Pago
             payment_data = {
