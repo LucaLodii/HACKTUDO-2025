@@ -38,16 +38,20 @@ COPY . .
 RUN mkdir -p /app/.wwebjs_auth
 
 # Create startup script for Render
-RUN echo '#!/bin/sh\n\
-# Start virtual display for headless Chrome\n\
-Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset > /dev/null 2>&1 &\n\
-export DISPLAY=:99\n\
-\n\
-# Wait for Xvfb to start\n\
-sleep 2\n\
-\n\
-# Start the application\n\
-exec node server.js' > /app/start.sh && chmod +x /app/start.sh
+COPY <<EOF /app/start.sh
+#!/bin/sh
+# Start virtual display for headless Chrome
+Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset > /dev/null 2>&1 &
+export DISPLAY=:99
+
+# Wait for Xvfb to start
+sleep 2
+
+# Start the application
+exec node server.js
+EOF
+
+RUN chmod +x /app/start.sh
 
 EXPOSE 3001
 
