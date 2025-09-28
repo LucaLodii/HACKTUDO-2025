@@ -202,13 +202,22 @@ class SofiaWhatsAppBridge {
     setupWhatsApp() {
         console.log('🔧 Initializing WhatsApp client...');
         
-        // Initialize WhatsApp client with optimized settings for cloud deployment
+        // Detect environment and configure Puppeteer accordingly
+        const isRender = process.env.RENDER === 'true' || process.env.RENDER_EXTERNAL_URL;
+        const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH ||
+                              (isRender ? '/usr/bin/chromium-browser' : null);
+
+        console.log(`🌐 Environment: ${isRender ? 'Render.com' : 'Local'}`);
+        if (executablePath) console.log(`🔧 Chrome executable: ${executablePath}`);
+
+        // Initialize WhatsApp client with environment-specific settings
         this.whatsappClient = new Client({
             authStrategy: new LocalAuth({
                 clientId: "sofia-payment-agent"
             }),
             puppeteer: {
                 headless: true,
+                executablePath: executablePath,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -216,10 +225,9 @@ class SofiaWhatsAppBridge {
                     '--disable-accelerated-2d-canvas',
                     '--no-first-run',
                     '--no-zygote',
-                    '--single-process',
                     '--disable-gpu',
                     '--disable-web-security',
-                    '--disable-features=VizDisplayCompositor',
+                    '--disable-features=VizDisplayCompositor,AudioServiceOutOfProcess',
                     '--disable-extensions',
                     '--disable-plugins',
                     '--disable-default-apps',
@@ -227,12 +235,11 @@ class SofiaWhatsAppBridge {
                     '--disable-backgrounding-occluded-windows',
                     '--disable-renderer-backgrounding',
                     '--memory-pressure-off',
-                    '--max_old_space_size=512',
+                    '--max_old_space_size=1024',
                     '--disable-background-networking',
                     '--disable-background-sync',
                     '--disable-client-side-phishing-detection',
                     '--disable-component-extensions-with-background-pages',
-                    '--disable-default-apps',
                     '--disable-hang-monitor',
                     '--disable-prompt-on-repost',
                     '--disable-sync',
@@ -243,10 +250,30 @@ class SofiaWhatsAppBridge {
                     '--enable-automation',
                     '--password-store=basic',
                     '--use-mock-keychain',
-                    '--disable-blink-features=AutomationControlled'
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-ipc-flooding-protection',
+                    '--disable-software-rasterizer',
+                    '--disable-canvas-aa',
+                    '--disable-2d-canvas-clip-aa',
+                    '--disable-gl-drawing-for-tests',
+                    '--hide-scrollbars',
+                    '--mute-audio',
+                    // Render.com specific optimizations
+                    ...(isRender ? [
+                        '--single-process',
+                        '--disable-audio-output',
+                        '--disable-background-media-suspend',
+                        '--disable-notifications',
+                        '--disable-device-discovery-notifications',
+                        '--virtual-time-budget=5000'
+                    ] : [])
                 ],
-                timeout: 60000,
-                protocolTimeout: 60000
+                timeout: isRender ? 120000 : 60000,  // Longer timeout for Render
+                protocolTimeout: isRender ? 120000 : 60000,
+                ...(isRender && {
+                    pipe: true,  // Use pipe instead of websocket on Render
+                    dumpio: false  // Disable debug output
+                })
             }
         });
 
