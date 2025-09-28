@@ -1,11 +1,10 @@
 services:
   - type: web
     name: sofia-whatsapp-bridge
-    env: node
+    env: docker
     region: oregon
     plan: starter
-    buildCommand: npm ci --only=production
-    startCommand: node server.js
+    dockerfilePath: ./Dockerfile.render
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,7 +20,8 @@ services:
         value: 3001
       - key: SOFIA_API_URL
         value: "https://sofia-payment-agent-2.onrender.com"
-    dockerfilePath: ./Dockerfile.render
+      - key: DISPLAY
+        value: ":99"
     healthCheckPath: /health
     disk:
       name: whatsapp-auth

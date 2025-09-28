@@ -258,6 +258,14 @@ class SofiaWhatsAppBridge {
                     '--disable-gl-drawing-for-tests',
                     '--hide-scrollbars',
                     '--mute-audio',
+                    '--disable-print-preview',
+                    '--disable-logging',
+                    '--disable-default-apps',
+                    '--disable-translate',
+                    '--disable-sync',
+                    '--disable-plugins-discovery',
+                    '--disable-preconnect',
+                    '--disable-background-mode',
                     // Render.com specific optimizations
                     ...(isRender ? [
                         '--single-process',
@@ -265,11 +273,19 @@ class SofiaWhatsAppBridge {
                         '--disable-background-media-suspend',
                         '--disable-notifications',
                         '--disable-device-discovery-notifications',
-                        '--virtual-time-budget=5000'
+                        '--virtual-time-budget=5000',
+                        '--disable-background-timer-throttling',
+                        '--disable-renderer-backgrounding',
+                        '--disable-backgrounding-occluded-windows',
+                        '--disable-features=TranslateUI',
+                        '--disable-ipc-flooding-protection',
+                        '--no-service-autorun',
+                        '--password-store=basic',
+                        '--use-mock-keychain'
                     ] : [])
                 ],
-                timeout: isRender ? 120000 : 60000,  // Longer timeout for Render
-                protocolTimeout: isRender ? 120000 : 60000,
+                timeout: isRender ? 180000 : 60000,  // Longer timeout for Render
+                protocolTimeout: isRender ? 180000 : 60000,
                 ...(isRender && {
                     pipe: true,  // Use pipe instead of websocket on Render
                     dumpio: false  // Disable debug output
@@ -359,17 +375,23 @@ class SofiaWhatsAppBridge {
             }
         });
 
-        // Initialize client with timeout
+        // Initialize client with timeout and better error handling
         console.log('🚀 Starting WhatsApp client initialization...');
-        this.whatsappClient.initialize();
+        
+        try {
+            await this.whatsappClient.initialize();
+        } catch (error) {
+            console.error('❌ Initial WhatsApp client initialization failed:', error.message);
+            // Don't retry immediately, let the timeout handle it
+        }
 
         // Set a timeout to detect if QR code generation fails
         setTimeout(() => {
             if (!this.currentQRCode && !this.isClientReady) {
-                console.log('⚠️  No QR code generated after 30 seconds, retrying...');
+                console.log('⚠️  No QR code generated after 45 seconds, retrying...');
                 this.retryWhatsAppConnection();
             }
-        }, 30000);
+        }, 45000); // Increased timeout for Render
     }
 
     retryWhatsAppConnection() {
@@ -389,18 +411,20 @@ class SofiaWhatsAppBridge {
             this.isClientReady = false;
             
             // Wait longer before reinitializing to allow cleanup
-            console.log('⏳ Waiting 10 seconds before retry...');
+            const retryDelay = process.env.RENDER === 'true' ? 15000 : 10000;
+            console.log(`⏳ Waiting ${retryDelay/1000} seconds before retry...`);
             setTimeout(() => {
                 console.log('🚀 Starting retry attempt...');
                 this.setupWhatsApp();
-            }, 10000);
+            }, retryDelay);
         } catch (error) {
             console.error('❌ Error during retry:', error);
             // Even if there's an error, try to restart after a delay
+            const emergencyDelay = process.env.RENDER === 'true' ? 20000 : 15000;
             setTimeout(() => {
                 console.log('🔄 Emergency retry after error...');
                 this.setupWhatsApp();
-            }, 15000);
+            }, emergencyDelay);
         }
     }
 

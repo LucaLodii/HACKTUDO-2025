@@ -11,6 +11,8 @@ RUN apk add --no-cache \
     ttf-freefont \
     dbus \
     xvfb \
+    udev \
+    ttf-opensans \
     && rm -rf /var/cache/apk/*
 
 # Set environment variables for Puppeteer
@@ -26,7 +28,8 @@ COPY package*.json ./
 
 # Install dependencies with optimizations for Render
 RUN npm ci --only=production --silent && \
-    npm cache clean --force
+    npm cache clean --force && \
+    rm -rf /tmp/*
 
 # Copy source code
 COPY . .
@@ -37,8 +40,11 @@ RUN mkdir -p /app/.wwebjs_auth
 # Create startup script for Render
 RUN echo '#!/bin/sh\n\
 # Start virtual display for headless Chrome\n\
-Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &\n\
+Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset > /dev/null 2>&1 &\n\
 export DISPLAY=:99\n\
+\n\
+# Wait for Xvfb to start\n\
+sleep 2\n\
 \n\
 # Start the application\n\
 exec node server.js' > /app/start.sh && chmod +x /app/start.sh
