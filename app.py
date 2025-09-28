@@ -151,6 +151,160 @@ async def cleanup_sessions():
     await cleanup_old_sessions()
     return {"message": "Session cleanup completed", "stats": get_session_stats()}
 
+
+@app.post("/webhooks/mercadopago")
+async def mercadopago_webhook(request: Request):
+    """Receive MercadoPago webhook notifications."""
+    try:
+        data = await request.json()
+        
+        # Log webhook received
+        print(f"🟢 MercadoPago webhook received: {data}")
+        
+        # Extract relevant information
+        webhook_type = data.get("type")
+        webhook_data = data.get("data", {})
+        
+        if webhook_type == "payment":
+            payment_id = webhook_data.get("id")
+            print(f"💳 Payment webhook - ID: {payment_id}")
+            
+            # Here you can add logic to:
+            # 1. Verify the payment status with MercadoPago API
+            # 2. Update your internal payment records
+            # 3. Notify the user via WhatsApp
+            # 4. Update AP2 mandate status
+            
+        elif webhook_type == "merchant_order":
+            order_id = webhook_data.get("id")
+            print(f"📦 Merchant order webhook - ID: {order_id}")
+            
+        # Always return success to MercadoPago
+        return JSONResponse(content={"status": "received", "webhook_type": webhook_type})
+        
+    except Exception as e:
+        print(f"❌ Error processing MercadoPago webhook: {e}")
+        # Still return success to avoid retries from MercadoPago
+        return JSONResponse(content={"status": "error", "message": str(e)})
+
+
+@app.post("/webhooks/pagseguro")
+async def pagseguro_webhook(request: Request):
+    """Receive PagSeguro webhook notifications."""
+    try:
+        data = await request.json()
+        
+        # Log webhook received
+        print(f"🟡 PagSeguro webhook received: {data}")
+        
+        # Extract relevant information
+        reference_id = data.get("reference_id")
+        status = data.get("status")
+        
+        print(f"💳 PagSeguro payment - Reference: {reference_id}, Status: {status}")
+        
+        # Here you can add logic to:
+        # 1. Verify the payment status with PagSeguro API
+        # 2. Update your internal payment records
+        # 3. Notify the user via WhatsApp
+        # 4. Update AP2 mandate status
+        
+        # Always return success to PagSeguro
+        return JSONResponse(content={"status": "received", "reference_id": reference_id})
+        
+    except Exception as e:
+        print(f"❌ Error processing PagSeguro webhook: {e}")
+        # Still return success to avoid retries from PagSeguro
+        return JSONResponse(content={"status": "error", "message": str(e)})
+
+
+@app.post("/webhooks/bemobi")
+async def bemobi_webhook(request: Request):
+    """Receive BEMOBI webhook notifications."""
+    try:
+        data = await request.json()
+        
+        # Log webhook received
+        print(f"🔵 BEMOBI webhook received: {data}")
+        
+        # Extract relevant information
+        transaction_id = data.get("transaction_id")
+        status = data.get("status")
+        merchant_id = data.get("merchant_id")
+        
+        print(f"💳 BEMOBI payment - Transaction: {transaction_id}, Status: {status}, Merchant: {merchant_id}")
+        
+        # Here you can add logic to:
+        # 1. Verify the payment status with BEMOBI API
+        # 2. Update your internal payment records
+        # 3. Notify the user via WhatsApp
+        # 4. Update AP2 mandate status
+        
+        # Always return success to BEMOBI
+        return JSONResponse(content={"status": "received", "transaction_id": transaction_id})
+        
+    except Exception as e:
+        print(f"❌ Error processing BEMOBI webhook: {e}")
+        # Still return success to avoid retries from BEMOBI
+        return JSONResponse(content={"status": "error", "message": str(e)})
+
+
+@app.get("/webhook")
+async def whatsapp_webhook_verify(
+    hub_mode: str = None,
+    hub_verify_token: str = None, 
+    hub_challenge: str = None
+):
+    """Verify WhatsApp webhook (for official WhatsApp Business API)."""
+    try:
+        # Verify token should match your WhatsApp app configuration
+        verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "sofia_webhook_token")
+        
+        if hub_mode == "subscribe" and hub_verify_token == verify_token:
+            print("✅ WhatsApp webhook verified successfully")
+            return int(hub_challenge)
+        else:
+            print("❌ WhatsApp webhook verification failed")
+            return JSONResponse(status_code=403, content={"error": "Forbidden"})
+            
+    except Exception as e:
+        print(f"❌ Error verifying WhatsApp webhook: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/webhook")
+async def whatsapp_webhook_receive(request: Request):
+    """Receive WhatsApp webhook messages (for official WhatsApp Business API)."""
+    try:
+        data = await request.json()
+        
+        # Log webhook received
+        print(f"💬 WhatsApp webhook received: {data}")
+        
+        # Extract message data
+        entry = data.get("entry", [])
+        if entry:
+            changes = entry[0].get("changes", [])
+            if changes:
+                value = changes[0].get("value", {})
+                messages = value.get("messages", [])
+                
+                for message in messages:
+                    from_number = message.get("from")
+                    message_text = message.get("text", {}).get("body", "")
+                    
+                    if message_text:
+                        print(f"📱 Message from {from_number}: {message_text}")
+                        
+                        # Process through your existing WhatsApp message handler
+                        # This would integrate with your process_whatsapp_message logic
+        
+        return JSONResponse(content={"status": "received"})
+        
+    except Exception as e:
+        print(f"❌ Error processing WhatsApp webhook: {e}")
+        return JSONResponse(content={"status": "error", "message": str(e)})
+
 def main():
     """Main application entry point."""
     print("🚀 Starting sofIA WhatsApp Payment Agent...")
