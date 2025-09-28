@@ -27,6 +27,7 @@ class SofiaWhatsAppBridge {
         this.whatsappClient = null;
         this.isClientReady = false;
         this.currentQRCode = null;
+        this.currentQRCodeImage = null;
         this.sofiaApiUrl = process.env.SOFIA_API_URL || 'http://localhost:8000';
 
         this.setupExpress();
@@ -221,8 +222,8 @@ class SofiaWhatsAppBridge {
                         
                         <div class="qr-container">
                             <div id="qr-code" class="qr-code">
-                                ${this.currentQRCode ? 
-                                    `<img src="data:image/png;base64,${this.currentQRCode}" alt="QR Code" style="max-width: 300px;">` :
+                                ${this.currentQRCodeImage ? 
+                                    `<img src="${this.currentQRCodeImage}" alt="QR Code" style="max-width: 300px;">` :
                                     '<p>Generating QR Code...</p>'
                                 }
                             </div>
@@ -246,36 +247,63 @@ class SofiaWhatsAppBridge {
                         </div>
                     </div>
                     
+                    <script src="/socket.io/socket.io.js"></script>
                     <script>
-                        // Auto-refresh every 5 seconds
+                        // Auto-refresh every 10 seconds
                         setInterval(() => {
                             location.reload();
-                        }, 5000);
+                        }, 10000);
+                        
+                        // Function to display QR code image
+                        function displayQRCode(qrImageUrl) {
+                            const qrCode = document.getElementById('qr-code');
+                            if (qrCode) {
+                                qrCode.innerHTML = \`<img src="\${qrImageUrl}" alt="QR Code" style="max-width: 300px;">\`;
+                            }
+                        }
                         
                         // WebSocket connection for real-time updates
-                        const socket = io();
+                        let socket;
+                        try {
+                            socket = io();
+                            
+                            socket.on('qr-code-image', (qrImageUrl) => {
+                                displayQRCode(qrImageUrl);
+                                document.getElementById('status').innerHTML = '⏳ Scan QR Code with WhatsApp';
+                                document.getElementById('status').className = 'status waiting';
+                            });
+                            
+                            socket.on('client-ready', (ready) => {
+                                if (ready) {
+                                    document.getElementById('status').innerHTML = '✅ WhatsApp Connected';
+                                    document.getElementById('status').className = 'status ready';
+                                    document.getElementById('qr-code').innerHTML = '<p>✅ Connected Successfully!</p>';
+                                }
+                            });
+                            
+                            socket.on('auth-failure', (msg) => {
+                                document.getElementById('status').innerHTML = '❌ Authentication Failed: ' + msg;
+                                document.getElementById('status').className = 'status waiting';
+                            });
+                            
+                        } catch (error) {
+                            console.log('WebSocket not available, using fallback mode');
+                            // Fallback: try to get QR code via API
+                            fetch('/qr-image')
+                                .then(response => response.blob())
+                                .then(blob => {
+                                    const url = URL.createObjectURL(blob);
+                                    const qrDisplay = document.getElementById('qr-display');
+                                    if (qrDisplay) {
+                                        qrDisplay.innerHTML = \`<img src="\${url}" alt="QR Code" style="max-width: 300px;">\`;
+                                    }
+                                })
+                                .catch(err => console.log('QR image not available yet'));
+                        }
                         
-                        socket.on('qr-code', (qr) => {
-                            document.getElementById('qr-code').innerHTML = 
-                                '<img src="data:image/png;base64,' + qr + '" alt="QR Code" style="max-width: 300px;">';
-                            document.getElementById('status').innerHTML = '⏳ Scan QR Code with WhatsApp';
-                            document.getElementById('status').className = 'status waiting';
-                        });
-                        
-                        socket.on('client-ready', (ready) => {
-                            if (ready) {
-                                document.getElementById('status').innerHTML = '✅ WhatsApp Connected';
-                                document.getElementById('status').className = 'status ready';
-                                document.getElementById('qr-code').innerHTML = '<p>✅ Connected Successfully!</p>';
-                            }
-                        });
-                        
-                        socket.on('auth-failure', (msg) => {
-                            document.getElementById('status').innerHTML = '❌ Authentication Failed: ' + msg;
-                            document.getElementById('status').className = 'status waiting';
-                        });
+                        // Initial QR code display if available
+                        ${this.currentQRCodeImage ? `displayQRCode('${this.currentQRCodeImage}');` : ''}
                     </script>
-                    <script src="/socket.io/socket.io.js"></script>
                 </body>
                 </html>
             `);
@@ -328,7 +356,16 @@ class SofiaWhatsAppBridge {
             // Store QR code for web interface
             this.currentQRCode = qr;
 
-            // Emit QR code to connected clients
+            // Generate QR code as base64 image for web interface
+            qrcode.toDataURL(qr, { width: 300, margin: 2 }, (err, url) => {
+                if (!err) {
+                    this.currentQRCodeImage = url;
+                    // Emit QR code image to connected clients
+                    this.io.emit('qr-code-image', url);
+                }
+            });
+
+            // Emit QR code data to connected clients
             this.io.emit('qr-code', qr);
         });
 
