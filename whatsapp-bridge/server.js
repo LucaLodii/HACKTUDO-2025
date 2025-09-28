@@ -202,7 +202,7 @@ class SofiaWhatsAppBridge {
     setupWhatsApp() {
         console.log('🔧 Initializing WhatsApp client...');
         
-        // Initialize WhatsApp client with local authentication
+        // Initialize WhatsApp client with optimized settings for cloud deployment
         this.whatsappClient = new Client({
             authStrategy: new LocalAuth({
                 clientId: "sofia-payment-agent"
@@ -222,13 +222,31 @@ class SofiaWhatsAppBridge {
                     '--disable-features=VizDisplayCompositor',
                     '--disable-extensions',
                     '--disable-plugins',
-                    '--disable-images',
-                    '--disable-javascript',
                     '--disable-default-apps',
                     '--disable-background-timer-throttling',
                     '--disable-backgrounding-occluded-windows',
-                    '--disable-renderer-backgrounding'
-                ]
+                    '--disable-renderer-backgrounding',
+                    '--memory-pressure-off',
+                    '--max_old_space_size=512',
+                    '--disable-background-networking',
+                    '--disable-background-sync',
+                    '--disable-client-side-phishing-detection',
+                    '--disable-component-extensions-with-background-pages',
+                    '--disable-default-apps',
+                    '--disable-hang-monitor',
+                    '--disable-prompt-on-repost',
+                    '--disable-sync',
+                    '--disable-translate',
+                    '--metrics-recording-only',
+                    '--no-default-browser-check',
+                    '--safebrowsing-disable-auto-update',
+                    '--enable-automation',
+                    '--password-store=basic',
+                    '--use-mock-keychain',
+                    '--disable-blink-features=AutomationControlled'
+                ],
+                timeout: 60000,
+                protocolTimeout: 60000
             }
         });
 
@@ -277,12 +295,7 @@ class SofiaWhatsAppBridge {
             this.io.emit('auth-failure', msg);
         });
 
-        // Disconnection
-        this.whatsappClient.on('disconnected', (reason) => {
-            console.log('🔌 WhatsApp client disconnected:', reason);
-            this.isClientReady = false;
-            this.io.emit('disconnected', reason);
-        });
+        // Disconnection - handled below with crash detection
 
         // Loading screen
         this.whatsappClient.on('loading_screen', (percent, message) => {
@@ -304,6 +317,21 @@ class SofiaWhatsAppBridge {
             await this.handleIncomingMessage(message);
         });
 
+        // Handle Puppeteer crashes
+        this.whatsappClient.on('disconnected', (reason) => {
+            console.log('🔌 WhatsApp client disconnected:', reason);
+            this.isClientReady = false;
+            this.io.emit('disconnected', reason);
+            
+            // If disconnected due to crash, retry
+            if (reason === 'NAVIGATION' || reason === 'CONNECTION_LOST') {
+                console.log('🔄 Connection lost, will retry in 15 seconds...');
+                setTimeout(() => {
+                    this.retryWhatsAppConnection();
+                }, 15000);
+            }
+        });
+
         // Initialize client with timeout
         console.log('🚀 Starting WhatsApp client initialization...');
         this.whatsappClient.initialize();
@@ -321,15 +349,31 @@ class SofiaWhatsAppBridge {
         console.log('🔄 Retrying WhatsApp connection...');
         try {
             if (this.whatsappClient) {
-                this.whatsappClient.destroy();
+                console.log('🧹 Destroying existing client...');
+                this.whatsappClient.destroy().catch(err => {
+                    console.log('⚠️  Error destroying client (expected):', err.message);
+                });
+                this.whatsappClient = null;
             }
             
-            // Wait a bit before reinitializing
+            // Clear current state
+            this.currentQRCode = null;
+            this.currentQRCodeImage = null;
+            this.isClientReady = false;
+            
+            // Wait longer before reinitializing to allow cleanup
+            console.log('⏳ Waiting 10 seconds before retry...');
             setTimeout(() => {
+                console.log('🚀 Starting retry attempt...');
                 this.setupWhatsApp();
-            }, 5000);
+            }, 10000);
         } catch (error) {
             console.error('❌ Error during retry:', error);
+            // Even if there's an error, try to restart after a delay
+            setTimeout(() => {
+                console.log('🔄 Emergency retry after error...');
+                this.setupWhatsApp();
+            }, 15000);
         }
     }
 
@@ -435,6 +479,19 @@ class SofiaWhatsAppBridge {
         });
     }
 }
+
+// Handle uncaught Puppeteer errors
+process.on('uncaughtException', (error) => {
+    console.error('💥 Uncaught Exception:', error.message);
+    if (error.message.includes('Protocol error') || error.message.includes('Target closed')) {
+        console.log('🔄 Puppeteer crash detected, will retry...');
+        // The retry mechanism will handle this
+    }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Start the bridge
 const bridge = new SofiaWhatsAppBridge();

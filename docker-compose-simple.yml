@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # sofIA Python Payment Agent (FastAPI)
+  sofia-payment-agent:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - AGENT_ID=${AGENT_ID:-sofia-whatsapp-agent}
+      - MERCHANT_ID=${MERCHANT_ID:-sofia-merchant}
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - SOFIA_API_URL=http://localhost:8000
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sofia-network
+
+  # WhatsApp WebSocket Bridge (Node.js)
+  whatsapp-bridge:
+    build: ./whatsapp-bridge
+    ports:
+      - "3001:3001"
+    environment:
+      - SOFIA_API_URL=http://sofia-payment-agent:8000
+      - PORT=3001
+    volumes:
+      - ./whatsapp-bridge/.wwebjs_auth:/app/.wwebjs_auth
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - sofia-payment-agent
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sofia-network
+
+  # Simple HTTP Nginx Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-simple.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - sofia-payment-agent
+      - whatsapp-bridge
+    restart: unless-stopped
+    networks:
+      - sofia-network
+
+networks:
+  sofia-network:
+    driver: bridge

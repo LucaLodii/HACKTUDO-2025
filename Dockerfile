@@ -6,6 +6,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
@@ -16,7 +17,6 @@ COPY pyproject.toml uv.lock ./
 COPY sofIA/ ./sofIA/
 COPY orchestrator/ ./orchestrator/
 COPY app.py ./
-COPY env.example ./
 
 # Install Python dependencies
 RUN uv sync --frozen
