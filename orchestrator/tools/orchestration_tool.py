@@ -751,12 +751,11 @@ async def _process_payment_with_enhanced_credentials(
 
             try:
                 real_payment_result = await mercadopago_tool(
-                    operation="process_payment",
+                    operation="create_payment_intent",
                     merchant_id="production_merchant",
                     amount=product_info['price'],
                     currency=product_info['currency'],
                     description=f"Pagamento {product_info['name']}",
-                    external_reference=f"sofia-{cart_id}",
                     customer_data={
                         "name": user_id.split('@')[0],
                         "email": f"{user_id.split('@')[0]}@whatsapp.user",
