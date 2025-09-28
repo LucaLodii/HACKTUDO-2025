@@ -1076,7 +1076,7 @@ def _extract_product_info(message: str, operator_name: str = "DEMO") -> Dict[str
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
         model = genai.GenerativeModel('gemini-2.5-flash')
 
-        # Get operator-specific plans for context (simplified for sync context)
+        # Use fallback plan data for sync context (actual plans loaded elsewhere)
         available_plans = []
 
         # Create operator-specific prompt for product extraction
@@ -1141,8 +1141,9 @@ If it's a subscription plan, set is_subscription to true."""
     message_lower = message.lower()
     if "pix" in message_lower:
         return {"name": f"{operator_name} Transferência PIX", "price": 0.00, "currency": "BRL", "requires_amount": True, "operator": operator_name}
-    elif any(word in message_lower for word in ["plano", "plan", "contratar"]):
-        return {"name": f"{operator_name} Plano", "price": 0.00, "currency": "BRL", "requires_amount": True, "is_subscription": True, "operator": operator_name}
+    elif any(word in message_lower for word in ["plano", "plan", "contratar", "internet", "gb", "mega"]):
+        # For subscription plans, never require amount - always show plan selection
+        return {"name": f"{operator_name} Plano de Internet", "price": 0.00, "currency": "BRL", "requires_amount": False, "is_subscription": True, "operator": operator_name}
     elif any(word in message_lower for word in ["café", "coffee"]):
         return {"name": "Café", "price": 12.00, "currency": "BRL", "requires_amount": False, "operator": operator_name}
     elif any(word in message_lower for word in ["almoço", "lunch"]):
