@@ -766,12 +766,10 @@ async def _process_payment_with_enhanced_credentials(
                 ap2_integration = CompleteAP2Integration(ap2_config)
 
                 # Process payment using complete AP2 protocol
-                real_payment_result = await ap2_integration.process_whatsapp_payment(
+                real_payment_result = await ap2_integration.process_whatsapp_message(
                     user_message=f"Pagamento de {product_info['name']}",
                     user_id=user_id,
                     merchant_id="claro_brasil",
-                    amount=product_info['price'],
-                    currency=product_info['currency'],
                     payment_method=payment_method,
                     payment_data={
                         "customer_name": user_id.split('@')[0],
