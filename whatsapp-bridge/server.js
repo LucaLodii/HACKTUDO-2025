@@ -44,7 +44,22 @@ class SofiaWhatsAppBridge {
             res.json({
                 status: 'healthy',
                 whatsapp_ready: this.isClientReady,
+                has_qr_code: !!this.currentQRCode,
+                has_qr_image: !!this.currentQRCodeImage,
                 service: 'sofIA WhatsApp Bridge'
+            });
+        });
+
+        // Debug endpoint
+        this.app.get('/debug', (req, res) => {
+            res.json({
+                whatsapp_ready: this.isClientReady,
+                has_qr_code: !!this.currentQRCode,
+                has_qr_image: !!this.currentQRCodeImage,
+                qr_code_length: this.currentQRCode ? this.currentQRCode.length : 0,
+                qr_image_length: this.currentQRCodeImage ? this.currentQRCodeImage.length : 0,
+                client_exists: !!this.whatsappClient,
+                timestamp: new Date().toISOString()
             });
         });
 
@@ -107,202 +122,59 @@ class SofiaWhatsAppBridge {
             }
         });
 
-        // QR Code web interface
+        // QR Code web interface - SIMPLIFIED VERSION
         this.app.get('/qr', (req, res) => {
+            const qrImageUrl = this.currentQRCodeImage || '/qr-image';
+            const status = this.isClientReady ? '✅ WhatsApp Connected' : '⏳ Waiting for QR Code...';
+            const statusClass = this.isClientReady ? 'ready' : 'waiting';
+            
             res.send(`
                 <!DOCTYPE html>
-                <html lang="en">
+                <html>
                 <head>
-                    <meta charset="UTF-8">
+                    <title>sofIA WhatsApp Bridge</title>
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>sofIA WhatsApp Bridge - QR Code</title>
                     <style>
-                        body {
-                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            margin: 0;
-                            padding: 20px;
-                            min-height: 100vh;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        }
-                        .container {
-                            background: white;
-                            border-radius: 20px;
-                            padding: 40px;
-                            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-                            text-align: center;
-                            max-width: 500px;
-                            width: 100%;
-                        }
-                        .logo {
-                            font-size: 2.5em;
-                            font-weight: bold;
-                            color: #667eea;
-                            margin-bottom: 10px;
-                        }
-                        .subtitle {
-                            color: #666;
-                            margin-bottom: 30px;
-                        }
-                        .qr-container {
-                            background: #f8f9fa;
-                            border-radius: 15px;
-                            padding: 30px;
-                            margin: 20px 0;
-                        }
-                        .qr-code {
-                            display: inline-block;
-                            background: white;
-                            padding: 20px;
-                            border-radius: 10px;
-                            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-                        }
-                        .status {
-                            margin: 20px 0;
-                            padding: 15px;
-                            border-radius: 10px;
-                            font-weight: 500;
-                        }
-                        .status.waiting {
-                            background: #fff3cd;
-                            color: #856404;
-                            border: 1px solid #ffeaa7;
-                        }
-                        .status.ready {
-                            background: #d4edda;
-                            color: #155724;
-                            border: 1px solid #c3e6cb;
-                        }
-                        .instructions {
-                            background: #e3f2fd;
-                            padding: 20px;
-                            border-radius: 10px;
-                            margin: 20px 0;
-                            text-align: left;
-                        }
-                        .instructions ol {
-                            margin: 10px 0;
-                            padding-left: 20px;
-                        }
-                        .instructions li {
-                            margin: 8px 0;
-                            color: #1976d2;
-                        }
-                        .refresh-btn {
-                            background: #667eea;
-                            color: white;
-                            border: none;
-                            padding: 12px 24px;
-                            border-radius: 25px;
-                            cursor: pointer;
-                            font-size: 16px;
-                            margin: 10px;
-                            transition: background 0.3s;
-                        }
-                        .refresh-btn:hover {
-                            background: #5a6fd8;
-                        }
-                        .auto-refresh {
-                            color: #666;
-                            font-size: 14px;
-                            margin-top: 20px;
-                        }
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f5f5f5; }
+                        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                        .logo { font-size: 2em; color: #667eea; margin-bottom: 20px; }
+                        .status { padding: 15px; margin: 20px 0; border-radius: 5px; }
+                        .waiting { background: #fff3cd; color: #856404; }
+                        .ready { background: #d4edda; color: #155724; }
+                        .qr-code { margin: 20px 0; }
+                        .qr-code img { max-width: 300px; border: 1px solid #ddd; }
+                        .instructions { background: #e3f2fd; padding: 20px; border-radius: 5px; text-align: left; margin: 20px 0; }
+                        .refresh-btn { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 10px; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
-                        <div class="logo">sofIA</div>
-                        <div class="subtitle">WhatsApp Payment Agent Bridge</div>
+                        <div class="logo">sofIA WhatsApp Bridge</div>
+                        <div class="status ${statusClass}">${status}</div>
                         
-                        <div id="status" class="status waiting">
-                            ${this.isClientReady ? '✅ WhatsApp Connected' : '⏳ Waiting for QR Code...'}
-                        </div>
-                        
-                        <div class="qr-container">
-                            <div id="qr-code" class="qr-code">
-                                ${this.currentQRCodeImage ? 
-                                    `<img src="${this.currentQRCodeImage}" alt="QR Code" style="max-width: 300px;">` :
-                                    '<p>Generating QR Code...</p>'
-                                }
-                            </div>
+                        <div class="qr-code">
+                            ${this.currentQRCodeImage ? 
+                                `<img src="${this.currentQRCodeImage}" alt="QR Code">` :
+                                '<p>Generating QR Code...</p>'
+                            }
                         </div>
                         
                         <div class="instructions">
                             <h3>📱 How to Connect:</h3>
                             <ol>
                                 <li>Open WhatsApp on your phone</li>
-                                <li>Tap the three dots menu (⋮)</li>
-                                <li>Select "Linked Devices"</li>
-                                <li>Tap "Link a Device"</li>
+                                <li>Tap ⋮ → Linked Devices → Link a Device</li>
                                 <li>Scan the QR code above</li>
                             </ol>
                         </div>
                         
-                        <button class="refresh-btn" onclick="location.reload()">🔄 Refresh Page</button>
-                        
-                        <div class="auto-refresh">
-                            This page auto-refreshes every 5 seconds
-                        </div>
+                        <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+                        <p><small>Page refreshes every 10 seconds</small></p>
                     </div>
                     
-                    <script src="/socket.io/socket.io.js"></script>
                     <script>
-                        // Auto-refresh every 10 seconds
-                        setInterval(() => {
-                            location.reload();
-                        }, 10000);
-                        
-                        // Function to display QR code image
-                        function displayQRCode(qrImageUrl) {
-                            const qrCode = document.getElementById('qr-code');
-                            if (qrCode) {
-                                qrCode.innerHTML = \`<img src="\${qrImageUrl}" alt="QR Code" style="max-width: 300px;">\`;
-                            }
-                        }
-                        
-                        // WebSocket connection for real-time updates
-                        let socket;
-                        try {
-                            socket = io();
-                            
-                            socket.on('qr-code-image', (qrImageUrl) => {
-                                displayQRCode(qrImageUrl);
-                                document.getElementById('status').innerHTML = '⏳ Scan QR Code with WhatsApp';
-                                document.getElementById('status').className = 'status waiting';
-                            });
-                            
-                            socket.on('client-ready', (ready) => {
-                                if (ready) {
-                                    document.getElementById('status').innerHTML = '✅ WhatsApp Connected';
-                                    document.getElementById('status').className = 'status ready';
-                                    document.getElementById('qr-code').innerHTML = '<p>✅ Connected Successfully!</p>';
-                                }
-                            });
-                            
-                            socket.on('auth-failure', (msg) => {
-                                document.getElementById('status').innerHTML = '❌ Authentication Failed: ' + msg;
-                                document.getElementById('status').className = 'status waiting';
-                            });
-                            
-                        } catch (error) {
-                            console.log('WebSocket not available, using fallback mode');
-                            // Fallback: try to get QR code via API
-                            fetch('/qr-image')
-                                .then(response => response.blob())
-                                .then(blob => {
-                                    const url = URL.createObjectURL(blob);
-                                    const qrDisplay = document.getElementById('qr-display');
-                                    if (qrDisplay) {
-                                        qrDisplay.innerHTML = \`<img src="\${url}" alt="QR Code" style="max-width: 300px;">\`;
-                                    }
-                                })
-                                .catch(err => console.log('QR image not available yet'));
-                        }
-                        
-                        // Initial QR code display if available
-                        ${this.currentQRCodeImage ? `displayQRCode('${this.currentQRCodeImage}');` : ''}
+                        // Simple auto-refresh
+                        setTimeout(() => location.reload(), 10000);
                     </script>
                 </body>
                 </html>
@@ -328,6 +200,8 @@ class SofiaWhatsAppBridge {
     }
 
     setupWhatsApp() {
+        console.log('🔧 Initializing WhatsApp client...');
+        
         // Initialize WhatsApp client with local authentication
         this.whatsappClient = new Client({
             authStrategy: new LocalAuth({
@@ -343,14 +217,25 @@ class SofiaWhatsAppBridge {
                     '--no-first-run',
                     '--no-zygote',
                     '--single-process',
-                    '--disable-gpu'
+                    '--disable-gpu',
+                    '--disable-web-security',
+                    '--disable-features=VizDisplayCompositor',
+                    '--disable-extensions',
+                    '--disable-plugins',
+                    '--disable-images',
+                    '--disable-javascript',
+                    '--disable-default-apps',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding'
                 ]
             }
         });
 
         // QR Code generation
         this.whatsappClient.on('qr', (qr) => {
-            console.log('📱 Scan this QR code with your WhatsApp:');
+            console.log('📱 QR CODE GENERATED! Scan this with your WhatsApp:');
+            console.log('QR Data length:', qr.length);
             qrcode.generate(qr, { small: true });
 
             // Store QR code for web interface
@@ -360,8 +245,12 @@ class SofiaWhatsAppBridge {
             qrcode.toDataURL(qr, { width: 300, margin: 2 }, (err, url) => {
                 if (!err) {
                     this.currentQRCodeImage = url;
+                    console.log('✅ QR code image generated for web interface');
+                    console.log('Image URL length:', url.length);
                     // Emit QR code image to connected clients
                     this.io.emit('qr-code-image', url);
+                } else {
+                    console.error('❌ Failed to generate QR code image:', err);
                 }
             });
 
@@ -395,13 +284,53 @@ class SofiaWhatsAppBridge {
             this.io.emit('disconnected', reason);
         });
 
+        // Loading screen
+        this.whatsappClient.on('loading_screen', (percent, message) => {
+            console.log(`⏳ Loading: ${percent}% - ${message}`);
+        });
+
+        // Change state
+        this.whatsappClient.on('change_state', (state) => {
+            console.log(`🔄 State changed to: ${state}`);
+        });
+
+        // Remote session saved
+        this.whatsappClient.on('remote_session_saved', () => {
+            console.log('💾 Remote session saved');
+        });
+
         // Message received
         this.whatsappClient.on('message', async (message) => {
             await this.handleIncomingMessage(message);
         });
 
-        // Initialize client
+        // Initialize client with timeout
+        console.log('🚀 Starting WhatsApp client initialization...');
         this.whatsappClient.initialize();
+
+        // Set a timeout to detect if QR code generation fails
+        setTimeout(() => {
+            if (!this.currentQRCode && !this.isClientReady) {
+                console.log('⚠️  No QR code generated after 30 seconds, retrying...');
+                this.retryWhatsAppConnection();
+            }
+        }, 30000);
+    }
+
+    retryWhatsAppConnection() {
+        console.log('🔄 Retrying WhatsApp connection...');
+        try {
+            if (this.whatsappClient) {
+                this.whatsappClient.destroy();
+            }
+            
+            // Wait a bit before reinitializing
+            setTimeout(() => {
+                this.setupWhatsApp();
+            }, 5000);
+        } catch (error) {
+            console.error('❌ Error during retry:', error);
+        }
     }
 
     setupSocketIO() {
