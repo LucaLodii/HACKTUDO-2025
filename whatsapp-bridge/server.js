@@ -204,8 +204,17 @@ class SofiaWhatsAppBridge {
         
         // Detect environment and configure Puppeteer accordingly
         const isRender = process.env.RENDER === 'true' || process.env.RENDER_EXTERNAL_URL;
-        const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH ||
-                              (isRender ? '/usr/bin/chromium-browser' : null);
+        let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        
+        // Clean up the executable path (remove trailing spaces/backslashes)
+        if (executablePath) {
+            executablePath = executablePath.trim().replace(/[\\\s]+$/, '');
+        }
+        
+        // Fallback to default path for Render
+        if (!executablePath && isRender) {
+            executablePath = '/usr/bin/google-chrome-stable';
+        }
 
         console.log(`🌐 Environment: ${isRender ? 'Render.com' : 'Local'}`);
         if (executablePath) console.log(`🔧 Chrome executable: ${executablePath}`);

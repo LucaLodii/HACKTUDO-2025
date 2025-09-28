@@ -1,23 +1,26 @@
-FROM node:18-alpine
+FROM node:18-bullseye-slim
 
-# Install Chrome and dependencies for Render.com
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
+# Install Chrome and dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
     ca-certificates \
-    ttf-freefont \
-    dbus \
+    procps \
+    libxss1 \
     xvfb \
-    udev \
-    ttf-opensans \
-    && rm -rf /var/cache/apk/*
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Google Chrome
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable \
     NODE_OPTIONS="--max-old-space-size=1024" \
     DISPLAY=:99
 
@@ -39,7 +42,7 @@ RUN mkdir -p /app/.wwebjs_auth
 
 # Create startup script for Render
 COPY <<EOF /app/start.sh
-#!/bin/sh
+#!/bin/bash
 # Start virtual display for headless Chrome
 Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset > /dev/null 2>&1 &
 export DISPLAY=:99

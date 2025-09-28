@@ -13,13 +13,15 @@ RUN apk add --no-cache \
     xvfb \
     udev \
     ttf-opensans \
+    xdpyinfo \
     && rm -rf /var/cache/apk/*
 
 # Set environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
     NODE_OPTIONS="--max-old-space-size=1024" \
-    DISPLAY=:99
+    DISPLAY=:99 \
+    RENDER=true
 
 WORKDIR /app
 
@@ -38,16 +40,38 @@ COPY . .
 RUN mkdir -p /app/.wwebjs_auth
 
 # Create startup script for Render
-COPY <<EOF /app/start.sh
+RUN cat > /app/start.sh << 'EOF'
 #!/bin/sh
+set -e
+
+echo "🚀 Starting sofIA WhatsApp Bridge..."
+
+# Verify Chrome installation
+if [ ! -f "/usr/bin/chromium-browser" ]; then
+    echo "❌ Chrome not found at /usr/bin/chromium-browser"
+    exit 1
+fi
+
+echo "✅ Chrome found at /usr/bin/chromium-browser"
+
 # Start virtual display for headless Chrome
+echo "🖥️ Starting virtual display..."
 Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset > /dev/null 2>&1 &
 export DISPLAY=:99
 
 # Wait for Xvfb to start
-sleep 2
+sleep 3
+
+# Verify display is working
+if ! xdpyinfo -display :99 >/dev/null 2>&1; then
+    echo "❌ Virtual display failed to start"
+    exit 1
+fi
+
+echo "✅ Virtual display started successfully"
 
 # Start the application
+echo "🚀 Starting Node.js application..."
 exec node server.js
 EOF
 

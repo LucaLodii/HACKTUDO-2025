@@ -1,154 +1,76 @@
-# WhatsApp Bridge Deployment Fix for Render.com
+# WhatsApp Bridge Deployment Fix
 
-## 🚨 Problem Fixed
-The "Protocol error (Target.setAutoAttach): Target closed" error was caused by:
-1. Missing Puppeteer dependency in package.json
-2. Insufficient Chrome dependencies in Docker
-3. Suboptimal Puppeteer configuration for Render environment
-4. Missing error handling for Chrome crashes
+## Issue Fixed
+The WhatsApp bridge was failing to start on Render.com with the error:
+```
+💥 Uncaught Exception: spawn /usr/bin/chromium-browser \ ENOENT
+```
 
-## ✅ Solutions Applied
+## Root Cause
+The Chrome executable path had trailing backslashes and spaces, causing the spawn command to fail.
 
-### 1. Updated Dependencies
-- Added `puppeteer-core: ^21.5.0` to package.json
-- This ensures proper Puppeteer integration with WhatsApp Web.js
+## Changes Made
 
-### 2. Enhanced Docker Configuration
-- Added missing Chrome dependencies (`udev`, `ttf-opensans`)
-- Improved Xvfb virtual display setup
-- Added proper cleanup and optimization
-- Better startup script with display initialization
+### 1. Fixed Chrome Path Handling in server.js
+- Added path cleaning to remove trailing spaces/backslashes
+- Improved environment detection for Render.com
+- Added fallback path configuration
 
-### 3. Optimized Puppeteer Settings
-- Added Render-specific Chrome flags for stability
-- Increased timeouts for Render environment (180s vs 60s)
-- Enhanced error handling and retry mechanisms
-- Better resource management for cloud deployment
+### 2. Updated Dockerfile.render
+- Added `xdpyinfo` package for display verification
+- Improved startup script with better error handling
+- Added Chrome installation verification
+- Enhanced virtual display setup
 
-### 4. Improved Error Handling
-- Better Chrome crash detection and recovery
-- Environment-specific retry delays
-- Enhanced logging for debugging
-- Graceful fallback mechanisms
+### 3. Fixed render.yaml Environment Variables
+- Removed quotes around Chrome executable path
+- Added RENDER environment variable to Dockerfile
 
-## 🚀 Deployment Instructions
+## Deployment Instructions
 
-### Option 1: Update Existing Service (Recommended)
+### Option 1: Deploy via Render Dashboard
+1. Go to your Render dashboard
+2. Find the `sofia-whatsapp-bridge` service
+3. Click "Manual Deploy" → "Deploy latest commit"
 
-1. **Commit the fixes:**
+### Option 2: Deploy via Git Push
 ```bash
-git add whatsapp-bridge/package.json
-git add whatsapp-bridge/Dockerfile.render
-git add whatsapp-bridge/server.js
-git add whatsapp-bridge/render.yaml
-git commit -m "fix: Resolve Puppeteer protocol errors for Render deployment
-
-- Add puppeteer-core dependency
-- Enhance Docker configuration with proper Chrome setup
-- Optimize Puppeteer settings for Render environment
-- Improve error handling and retry mechanisms"
-git push
+git add .
+git commit -m "Fix WhatsApp bridge Chrome path issue"
+git push origin main
 ```
 
-2. **In Render Dashboard:**
-   - Go to your WhatsApp bridge service
-   - Trigger a manual redeploy
-   - Monitor logs for successful Chrome initialization
+## Verification Steps
+After deployment, check:
 
-### Option 2: Deploy New Service
+1. **Service Health**: Visit `https://your-service-url.onrender.com/health`
+2. **QR Code**: Visit `https://your-service-url.onrender.com/qr`
+3. **Logs**: Check Render logs for successful Chrome startup
 
-1. **Use the render.yaml file:**
-   - In Render dashboard, create new service
-   - Choose "Blueprint" option
-   - Point to your repository
-   - Use the `whatsapp-bridge/render.yaml` configuration
-
-## 🔍 Expected Behavior After Fix
-
-### Successful Deployment Logs:
+## Expected Log Output
 ```
+🚀 Starting sofIA WhatsApp Bridge...
+✅ Chrome found at /usr/bin/chromium-browser
+🖥️ Starting virtual display...
+✅ Virtual display started successfully
+🚀 Starting Node.js application...
+🔧 Initializing WhatsApp client...
 🌐 Environment: Render.com
 🔧 Chrome executable: /usr/bin/chromium-browser
-🔧 Initializing WhatsApp client...
 🚀 Starting WhatsApp client initialization...
-📱 QR CODE GENERATED! Scan this with your WhatsApp:
-✅ QR code image generated for web interface
+🚀 sofIA WhatsApp Bridge running on port 3001
+📱 Waiting for WhatsApp QR code...
 ```
 
-### Access Points:
-- **QR Code Interface**: `https://your-service.onrender.com/qr`
-- **Health Check**: `https://your-service.onrender.com/health`
-- **Debug Info**: `https://your-service.onrender.com/debug`
+## Troubleshooting
+If issues persist:
+1. Check Render service logs for specific error messages
+2. Verify the service is using the correct Dockerfile (`Dockerfile.render`)
+3. Ensure all environment variables are properly set
+4. Check if the service has sufficient memory (minimum 512MB recommended)
 
-## 🛠️ Troubleshooting
-
-### If Still Getting Errors:
-
-1. **Check Render Logs:**
-   - Look for Chrome executable errors
-   - Verify Xvfb virtual display startup
-   - Check Puppeteer initialization
-
-2. **Memory Issues:**
-   - Consider upgrading from Starter (512MB) to Standard (2GB) plan
-   - Chrome needs minimum 1GB RAM for stable operation
-
-3. **Timeout Issues:**
-   - The fix includes longer timeouts (180s) for Render
-   - If still timing out, check network connectivity
-
-4. **QR Code Not Generating:**
-   - Check `/health` endpoint for service status
-   - Verify Chrome is starting properly
-   - Look for authentication errors in logs
-
-## 📊 Performance Improvements
-
-### Before Fix:
-- ❌ Chrome crashes due to missing dependencies
-- ❌ Protocol errors on startup
-- ❌ No proper error recovery
-- ❌ Insufficient timeouts for cloud environment
-
-### After Fix:
-- ✅ Stable Chrome execution with proper dependencies
-- ✅ Robust error handling and recovery
-- ✅ Optimized settings for Render environment
-- ✅ Proper virtual display setup
-- ✅ Enhanced logging and debugging
-
-## 🔧 Technical Details
-
-### Key Changes Made:
-
-1. **package.json**: Added `puppeteer-core` dependency
-2. **Dockerfile.render**: Enhanced Chrome setup with additional dependencies
-3. **server.js**: Improved Puppeteer configuration and error handling
-4. **render.yaml**: Updated to use Docker environment
-
-### Chrome Flags Added for Render:
-```bash
---single-process
---disable-audio-output
---disable-background-media-suspend
---virtual-time-budget=5000
---no-service-autorun
---password-store=basic
---use-mock-keychain
-```
-
-### Error Recovery Features:
-- Automatic retry on Chrome crashes
-- Environment-specific timeout adjustments
-- Graceful degradation on failures
-- Enhanced logging for debugging
-
-## 🎯 Next Steps
-
-1. Deploy the fixes using Option 1 or 2 above
-2. Monitor the deployment logs for successful initialization
-3. Access the QR code interface to connect WhatsApp
-4. Test message sending/receiving functionality
-5. Verify integration with sofIA payment agent
-
-The deployment should now work reliably on Render.com with proper WhatsApp Web.js integration!
+## Next Steps
+1. Deploy the updated configuration
+2. Test WhatsApp connection via QR code
+3. Verify message processing through sofIA agent
+4. Monitor service stability and performance
