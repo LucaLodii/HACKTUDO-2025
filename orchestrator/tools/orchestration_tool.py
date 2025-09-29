@@ -13,6 +13,36 @@ _user_sessions = {}
 _session_locks = defaultdict(asyncio.Lock)
 _mock_payment_processor = {}
 
+def _filter_agent_markers(reply: str) -> str:
+    """
+    Filter out internal agent coordination markers from replies sent to clients.
+    SECURITY: These markers are for agent-to-agent communication only and should never reach users.
+    """
+    import re
+
+    # List of coordination markers to filter out
+    agent_markers = [
+        r'\[PAYMENT_INTENT\]\s*',
+        r'\[PAYMENT_CONFIRM\]\s*',
+        r'\[PAYMENT_CANCEL\]\s*',
+        r'\[SUBSCRIPTION_INTENT\]\s*',
+        r'\[CREDENTIAL_REQUEST\]\s*',
+        r'\[MERCHANT_SWITCH\]\s*',
+        r'\[PLAN_SELECTION\]\s*',
+        r'\[BOLETO_DETECTED\]\s*',
+        r'\[ERROR\]\s*',
+        r'\[DEBUG\]\s*'
+    ]
+
+    filtered_reply = reply
+    for marker in agent_markers:
+        filtered_reply = re.sub(marker, '', filtered_reply)
+
+    # Clean up any double spaces or leading/trailing whitespace
+    filtered_reply = re.sub(r'\s+', ' ', filtered_reply).strip()
+
+    return filtered_reply
+
 # White-label operator detection
 OPERATOR_KEYWORDS = {
     "VIVO": ["vivo", "viv0", "purple", "roxo"],
@@ -124,11 +154,13 @@ async def process_user_message(message: str, user_id: str, agent_reply: str, ope
 
         session_updates = {}
         if coordination_result:
-            reply = coordination_result["reply"]
+            # SECURITY: Filter out agent coordination markers from coordination replies too
+            reply = _filter_agent_markers(coordination_result["reply"])
             session_updates = coordination_result.get("session_updates", {})
             session.update(session_updates)
         else:
-            reply = agent_reply
+            # SECURITY: Filter out agent coordination markers before sending to client
+            reply = _filter_agent_markers(agent_reply)
 
         session["conversation_history"].append({"role": "assistant", "message": reply})
         session["last_activity"] = datetime.now().isoformat()
@@ -246,13 +278,11 @@ async def _create_payment_intent(message: str, user_id: str, session: Dict[str, 
             print(f"✅ Cart Mandate created: {cart_id}")
 
             # Present cart to user for confirmation (AP2 protocol requirement)
+            # SECURITY: Never expose Intent IDs or Cart IDs to clients
             reply = f"""🛒 **Carrinho preparado pela sofIA**
 
 **{product_info['name']}**
 💰 {product_info['currency']} {product_info['price']:.2f}
-
-🔐 Intent ID: `{intent_id}`
-📋 Cart ID: `{cart_id}`
 
 Este carrinho foi criado com base na sua solicitação. A sofIA pode processar o pagamento automaticamente após sua confirmação.
 
@@ -444,10 +474,7 @@ async def _process_plan_selection(message: str, user_id: str, session: Dict[str,
 📞 {selected_plan['voice_minutes']}
 💬 {selected_plan['sms_count']}
 
-🔐 Intent ID: `{intent_id}`
-📋 Cart ID: `{cart_id}`
-
-Este plano foi preparado pela sofIA {operator_name}. 
+Este plano foi preparado pela sofIA {operator_name}.
 A confirmação processará o pagamento automaticamente.
 
 **Confirmar contratação?** (Responda 'sim' ou 'não')"""
@@ -526,7 +553,6 @@ async def _process_payment(user_id: str, session: Dict[str, Any]) -> Dict[str, A
 **{product_info['name']}**
 💰 {product_info['currency']} {product_info['price']:.2f}
 
-🔐 Transaction ID: `{transaction_id}`
 🤖 Executado pela sofIA via protocolo AP2
 📱 Status: Concluído
 
@@ -816,7 +842,7 @@ async def _process_payment_with_enhanced_credentials(
                     print(f"   Amount: {product_info['currency']} {product_info['price']}")
 
                     return {
-                        "reply": f"✅ **Pagamento AP2 + Mercado Pago Concluído!**\n**{product_info['name']}**\n💰 {product_info['currency']} {product_info['price']:.2f}\n💳 Método: {payment_method.upper()}\n🔐 Transaction ID: {real_payment_result.get('transaction_id', 'N/A')}\n\n**Pagamento processado com máxima segurança via AP2 Protocol + Mercado Pago!**",
+                        "reply": f"✅ **Pagamento AP2 + Mercado Pago Concluído!**\n**{product_info['name']}**\n💰 {product_info['currency']} {product_info['price']:.2f}\n💳 Método: {payment_method.upper()}\n\n**Pagamento processado com máxima segurança via AP2 Protocol + Mercado Pago!**",
                         "session_updates": {
                             "payment_state": "completed",
                             "transaction_id": real_payment_result.get('transaction_id'),
@@ -903,10 +929,8 @@ async def _process_payment_with_enhanced_credentials(
 💳 Método: {payment_method.upper()}
 
 🔐 **Detalhes AP2 Protocol:**
-🆔 Transaction ID: `{transaction_context.transaction_id}`
-🤖 Sender Agent: `{transaction_context.sender_agent.agent_id}`
-🏢 Receiver Agent: `{transaction_context.receiver_agent.agent_id}`
-🎫 Credential ID: `{credential_result.get("collection_id", "unknown")[:16]}...`
+🤖 Processamento via AP2 Protocol
+🔐 Agentes autenticados com segurança
 
 **🏛️ Merchant Verificado:**
 ✓ Operadora: Vivo Brasil
@@ -1041,9 +1065,8 @@ async def _process_payment_with_credentials(message: str, user_id: str, session:
 💰 {product_info['currency']} {product_info['price']:.2f}
 💳 Método: {payment_credentials['method'].upper()}
 
-🔐 AP2 Transaction ID: `{transaction_context.transaction_id}`
-🤖 Sender Agent: {transaction_context.sender_agent.agent_id}
-🔒 Receiver Agent: {transaction_context.receiver_agent.agent_id}
+🤖 Processamento via AP2 Protocol
+🔐 Agentes autenticados com segurança
 📱 Status: Concluído com protocolo AP2
 
 **Certificação AP2:**

@@ -8,11 +8,9 @@ Follows the same patterns as the PagSeguro integration but uses Mercado Pago API
 """
 
 import os
-import json
 import requests
 import hashlib
 import hmac
-import base64
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
@@ -594,6 +592,7 @@ class MercadoPagoTool:
                                    description: str, currency: str = "BRL",
                                    customer_data: Dict[str, Any] = None, **kwargs) -> Dict[str, Any]:
         """Create payment intent with Mercado Pago"""
+        _ = kwargs  # Unused
         result = await self.processor.create_payment_intent(
             merchant_id=merchant_id,
             amount=amount,
@@ -607,6 +606,7 @@ class MercadoPagoTool:
     async def _process_payment(self, preference_id: str, payment_method: str,
                              payment_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Process payment through Mercado Pago"""
+        _ = kwargs  # Unused
         result = await self.processor.process_payment(
             preference_id=preference_id,
             payment_method=payment_method,
@@ -617,6 +617,7 @@ class MercadoPagoTool:
     
     async def _get_payment_status(self, payment_id: str, **kwargs) -> Dict[str, Any]:
         """Get payment status from Mercado Pago"""
+        _ = kwargs  # Unused
         result = await self.processor.get_payment_status(payment_id)
         return result
     
@@ -644,6 +645,7 @@ class MercadoPagoTool:
     
     async def _get_merchant_info(self, merchant_id: str, **kwargs) -> Dict[str, Any]:
         """Get merchant information"""
+        _ = kwargs  # Unused
         merchant = self.processor.get_merchant(merchant_id)
         
         if not merchant:
@@ -659,6 +661,7 @@ class MercadoPagoTool:
     
     async def _get_payment_methods(self, **kwargs) -> Dict[str, Any]:
         """Get available payment methods for Mercado Pago"""
+        _ = kwargs  # Unused
         return {
             "success": True,
             "payment_methods": [
