@@ -26,23 +26,6 @@ services:
     healthCheckPath: /health
     autoDeploy: true
 
-  # WhatsApp Bridge (Node.js)
-  - type: web
-    name: whatsapp-bridge
-    env: node
-    plan: starter
-    buildCommand: npm install
-    startCommand: npm start
-    envVars:
-      - key: SOFIA_API_URL
-        fromService:
-          type: web
-          name: sofia-payment-agent
-          property: host
-      - key: PORT
-        value: 3001
-    healthCheckPath: /health
-    autoDeploy: true
-    dependsOn:
-      - sofia-payment-agent
+# WhatsApp Bridge is now deployed separately
+# See: sofIA-Whatsapp-Websocket repository
 

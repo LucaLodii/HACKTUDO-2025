@@ -10,6 +10,7 @@ import sys
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 # Add the project root to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -35,6 +36,15 @@ print(f"🎨 Brand Color: {BRAND_COLOR}")
 
 # Create FastAPI app for WhatsApp Web.js integration
 app = FastAPI(title="sofIA WhatsApp Payment Agent", version="1.0.0")
+
+# Add CORS middleware for external WhatsApp bridge calls
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact WhatsApp bridge URLs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount notification API
 app.mount("/notifications", notification_app)

@@ -1,5 +1,7 @@
 # sofIA - The Future of Conversational Commerce is Here
 
+> **📋 Architecture Note**: This repository contains the main sofIA payment agent. The WhatsApp bridge is deployed separately in the [sofIA-Whatsapp-Websocket](https://github.com/sofIA-Payment-Agent/sofIA-Whatsapp-Websocket) repository.
+
 ## 🚀 **REVOLUTIONARY BREAKTHROUGH: First AP2-Compliant Multi-Agent Payment System**
 
 **sofIA** (Smart Orchestrated Financial Intelligence Agent) is the world's **first implementation** of Google's cutting-edge [AP2 (Agent Payments Protocol)](https://cloud.google.com/blog/products/ai-machine-learning/announcing-agents-to-payments-ap2-protocol) in a production-ready multi-agent system, creating a **paradigm shift** in how payments are processed through WhatsApp.
@@ -146,10 +148,10 @@ While BEMOBI's [Grace platform](https://bemobi.com/pt/grace-pagamentos-conversac
    uv sync
    ```
 
-2. **Setup WhatsApp Web.js Bridge**:
+2. **Setup WhatsApp Web.js Bridge** (separate repository):
    ```bash
-   cd whatsapp-bridge
-   npm install
+   # WhatsApp bridge is now in a separate repository
+   # See: sofIA-Whatsapp-Websocket repository
    ```
 
 3. **Configure environment**:
@@ -205,11 +207,10 @@ While BEMOBI's [Grace platform](https://bemobi.com/pt/grace-pagamentos-conversac
 
 ### **Quick Start (WhatsApp Web.js)**
 
-1. **Start WhatsApp Bridge**:
+1. **Start WhatsApp Bridge** (separate repository):
    ```bash
-   cd whatsapp-bridge
-   ./start.sh
-   # Or manually: npm start
+   # WhatsApp bridge is now in a separate repository
+   # See: sofIA-Whatsapp-Websocket repository
    ```
 
 2. **Scan QR Code**:
